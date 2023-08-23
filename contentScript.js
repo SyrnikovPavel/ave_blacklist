@@ -151,17 +151,17 @@ function listenerBlacklistBtn(userData, element){
     if (btns.length > 0 ){
         let btn = btns[0]
         let btn_text = btn.innerText
-        if (btn_text === "Заблок. польз.") {
+        if (btn_text === "Скрыть польз.") {
             addUserToBlacklist(user_id);
             let only_btn = btn.getElementsByClassName("to_blacklist")[0]
-            only_btn.innerText = "Разблок. польз."
+            only_btn.innerText = "Показать польз."
             only_btn.classList.remove("to_blacklist")
             only_btn.classList.add("from_blacklist")
             hideAddsByUserId(user_id);
         } else {
             removeFromBlacklist(user_id);
             let only_btn = btn.getElementsByClassName("from_blacklist")[0]
-            only_btn.innerText = "Заблок. польз."
+            only_btn.innerText = "Скрыть польз."
             only_btn.classList.remove("from_blacklist")
             only_btn.classList.add("to_blacklist")
             showAddsByUserId(user_id)
@@ -174,10 +174,10 @@ function listenerBlacklistADBtn(addID, element){
     if (btns.length > 0 ){
         let btn = btns[0]
         let btn_text = btn.innerText
-        if (btn_text === "Заблок. объяв.") {
+        if (btn_text === "Скрыть объяв.") {
             addADToBlacklist(addID);
             let only_btn = btn.getElementsByClassName("to_blacklist")[0]
-            only_btn.innerText = "Разблок. объяв."
+            only_btn.innerText = "Показать объяв."
             only_btn.classList.remove("to_blacklist")
             only_btn.classList.add("from_blacklist")
 
@@ -195,7 +195,7 @@ function listenerBlacklistADBtn(addID, element){
         } else {
             removeADFromBlacklist(addID);
             let only_btn = btn.getElementsByClassName("from_blacklist")[0]
-            only_btn.innerText = "Заблок. объяв."
+            only_btn.innerText = "Скрыть объяв."
             only_btn.classList.remove("from_blacklist")
             only_btn.classList.add("to_blacklist")
 
@@ -317,7 +317,7 @@ function addButton(element, userData){
 
         const userBtn = buttons.querySelector(".avito_blacklist_user");
         if (!userBtn) {
-            const text = in_blacklist ? "Разблок. польз." : "Заблок. польз.";
+            const text = in_blacklist ? "Показать польз." : "Скрыть польз.";
             const classBtn = in_blacklist ? "from_blacklist" : "to_blacklist";
             const html = `
                 <div class="avito_blacklist_user">
@@ -346,7 +346,7 @@ function addButton(element, userData){
 
         const addBtn = buttons.querySelector(".avito_blacklist_add");
         if (!addBtn) {
-            const text = in_blacklist ? "Разблок. объяв." : "Заблок. объяв.";
+            const text = in_blacklist ? "Показать объяв." : "Скрыть объяв.";
             const classBtn = in_blacklist ? "from_blacklist" : "to_blacklist";
             const html = `
                     <div class="avito_blacklist_add">
