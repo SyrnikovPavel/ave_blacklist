@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Импорт пользователей/объявленй</title>
+    <style>
+        #users{
+            width: 400px;
+            height: 200px;
+        }
+        #ads{
+            width: 400px;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <label for="users">Введите ID пользователей через запятую (или 1 ID в одну строчку) или скопируйте их из файла</label>
+        <br/>
+        <textarea id="users"></textarea>
+        <br/>
+        <button id="importUser">Импорт пользователей</button>
+    </form>
+
+    <form>
+        <label for="ads">Введите ID объявлений через запятую (или 1 ID в одну строчку) или скопируйте их из файла</label>
+        <br/>
+        <textarea id="ads"></textarea>
+        <br/>
+        <button id="importAd">Импорт объявлений</button>
+    </form>
+
+
+    <script src="textImport.js"></script>
+</body>
+</html>
