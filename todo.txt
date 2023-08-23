@@ -1,0 +1,14 @@
+1) Sync func here - rewrite checking user in blacklist - addUserToBlacklist,
+removeFromBlacklist, checkUserInBlacklist, addButton, addUserButtonsAndListeners
+
+2) Sync func here - rewrite checking ad in blacklist - addADToBlacklist,
+removeADFromBlacklist, checkADInBlacklist, showAddsByUserId, addButton,
+addUserButtonsAndListeners,
+
+3) Sync func here - rewrite add user in blacklist - addUserToBlacklist
+
+4) Sync func here - rewrite add ad in blacklist - addADToBlacklist
+
+5) Sync func here - rewrite remove user from blacklist - removeFromBlacklist
+
+6) Sync func here - rewrite remove ad in blacklist - removeADFromBlacklist

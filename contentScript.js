@@ -21,6 +21,7 @@ HIDE/SHOW ADD
 // STORAGE
 
 function migrateData() {
+    // TODO: Sync func here
     chrome.storage.sync.get("users_blacklist", function(result) {
         let oldBlacklist = result.users_blacklist || [];
         let newBlacklist = {};
@@ -29,6 +30,7 @@ function migrateData() {
             newBlacklist[userId + '_blacklist_user'] = true;
         });
 
+        // TODO: Sync func here
         chrome.storage.sync.set(newBlacklist, function() {
             console.log("Migrated users_blacklist data to new format");
         });
@@ -36,6 +38,7 @@ function migrateData() {
 
     });
 
+    // TODO: Sync func here
     chrome.storage.sync.get("adds_blacklist", function(result) {
         let oldBlacklist = result.users_blacklist || [];
         let newBlacklist = {};
@@ -44,6 +47,7 @@ function migrateData() {
             newBlacklist[userId + '_blacklist_ad'] = true;
         });
 
+        // TODO: Sync func here
         chrome.storage.sync.set(newBlacklist, function() {
             console.log("Migrated adds_blacklist data to new format");
         });
@@ -56,12 +60,16 @@ migrateData();
 
 function addUserToBlacklist(user_id) {
     let search_id = user_id + '_blacklist_user';
+
+    // TODO: Sync func here - rewrite checking user in blacklist
     chrome.storage.sync.get(search_id, function(result) {
         if (result[search_id]) {
             console.log(`${search_id} is already in blacklist`);
         } else {
             let data = {};
             data[search_id] = true;
+
+            // TODO: Sync func here - rewrite add user in blacklist
             chrome.storage.sync.set(data, function() {
                 console.log(`Added ${search_id} to blacklist`);
             });
@@ -71,12 +79,16 @@ function addUserToBlacklist(user_id) {
 
 function addADToBlacklist(ad_id) {
     let search_id = ad_id + '_blacklist_ad';
+
+    // TODO: Sync func here - rewrite checking ad in blacklist
     chrome.storage.sync.get(search_id, function(result) {
         if (result[search_id]) {
             console.log(`${search_id} is already in blacklist`);
         } else {
             let data = {};
             data[search_id] = true;
+
+            // TODO: Sync func here - rewrite add ad in blacklist
             chrome.storage.sync.set(data, function() {
                 console.log(`Added ${search_id} to blacklist`);
             });
@@ -86,8 +98,12 @@ function addADToBlacklist(ad_id) {
 
 function removeFromBlacklist(username) {
     let search_id = username + '_blacklist_user';
+
+    // TODO: Sync func here - rewrite checking user in blacklist
     chrome.storage.sync.get(search_id, function(result) {
         if (result[search_id]) {
+
+            // TODO: Sync func here - rewrite remove user from blacklist
             chrome.storage.sync.remove(search_id, function() {
                 console.log(`Removed ${search_id} from blacklist`);
             });
@@ -99,8 +115,12 @@ function removeFromBlacklist(username) {
 
 function removeADFromBlacklist(ad_id) {
     let search_id = ad_id + '_blacklist_ad';
+
+    // TODO: Sync func here - rewrite checking ad in blacklist
     chrome.storage.sync.get(search_id, function(result) {
         if (result[search_id]) {
+
+            // TODO: Sync func here - rewrite remove ad in blacklist
             chrome.storage.sync.remove(search_id, function() {
                 console.log(`Removed ${search_id} from ad blacklist`);
             });
@@ -112,6 +132,8 @@ function removeADFromBlacklist(ad_id) {
 
 function checkUserInBlacklist(user_id, callback) {
     let search_id = user_id + '_blacklist_user';
+
+    // TODO: Sync func here - rewrite checking user in blacklist
     chrome.storage.sync.get(search_id, function(result) {
         callback(result[search_id] ? true : false);
     });
@@ -119,6 +141,8 @@ function checkUserInBlacklist(user_id, callback) {
 
 function checkADInBlacklist(ad_id, callback) {
     let search_id = ad_id + '_blacklist_ad';
+
+    // TODO: Sync func here - rewrite checking ad in blacklist
     chrome.storage.sync.get(search_id, function(result) {
         callback(result[search_id] ? true : false);
     });
@@ -275,6 +299,7 @@ function showAddsByUserId(user_id){
             let user_id_current = userData.user_id
             if (user_id === user_id_current){
 
+                // TODO: Sync func here - rewrite checking ad in blacklist
                 chrome.storage.sync.get(addId + '_blacklist_ad', function(result) {
                     let in_blacklist = result[user_id + "_blacklist_ad"] || false;
 
@@ -310,7 +335,7 @@ function addButton(element, userData){
     const userId = userData.user_id;
     const buttons = element.getElementsByClassName(actions_class)[0] || element.getElementsByClassName(buttons_class)[0];
 
-
+    // TODO: Sync func here - rewrite checking user in blacklist
     chrome.storage.sync.get(userId + "_blacklist_user", function(result) {
 
         let in_blacklist = result[userId + "_blacklist_user"] || false;
@@ -339,7 +364,7 @@ function addButton(element, userData){
 
     });
 
-
+    // TODO: Sync func here - rewrite checking ad in blacklist
     chrome.storage.sync.get(addId + "_blacklist_ad", function(result) {
 
         let in_blacklist = result[addId + "_blacklist_ad"] || false;
@@ -430,6 +455,7 @@ function addUserButtonsAndListeners(element){
         userData.add_id = addId
         let userId = userData.user_id
 
+        // TODO: Sync func here - rewrite checking user in blacklist
         chrome.storage.sync.get(userId + "_blacklist_user", function(result) {
 
             let in_blacklist = result[userId + "_blacklist_user"] || false;
@@ -438,6 +464,8 @@ function addUserButtonsAndListeners(element){
                 hideAddsByUserId(userId)
             } else {
                 showAddsByUserId(userId)
+
+                // TODO: Sync func here - rewrite checking ad in blacklist
                 chrome.storage.sync.get(addId + "_blacklist_ad", function(result) {
 
                     let in_blacklist = result[addId + "_blacklist_ad"] || false;
