@@ -1,14 +1,24 @@
-1) Sync func here - rewrite checking user in blacklist - addUserToBlacklist,
-removeFromBlacklist, checkUserInBlacklist, addButton, addUserButtonsAndListeners
+1) Sync func here - rewrite checking user in blacklist - addUserToBlacklist - done,
+removeFromBlacklist - done, addButton - done, addUserButtonsAndListeners - done -- done
 
-2) Sync func here - rewrite checking ad in blacklist - addADToBlacklist,
-removeADFromBlacklist, checkADInBlacklist, showAddsByUserId, addButton,
-addUserButtonsAndListeners,
+2) Sync func here - rewrite checking ad in blacklist - addADToBlacklist - done,
+removeADFromBlacklist - done, showAddsByUserId - done, addButton - done,
+addUserButtonsAndListeners - done,
 
-3) Sync func here - rewrite add user in blacklist - addUserToBlacklist
+3) Sync func here - rewrite add user in blacklist - addUserToBlacklist - done
 
-4) Sync func here - rewrite add ad in blacklist - addADToBlacklist
+4) Sync func here - rewrite add ad in blacklist - addADToBlacklist - done
 
-5) Sync func here - rewrite remove user from blacklist - removeFromBlacklist
+5) Sync func here - rewrite remove user from blacklist - removeFromBlacklist - done
 
-6) Sync func here - rewrite remove ad in blacklist - removeADFromBlacklist
+6) Sync func here - rewrite remove ad in blacklist - removeADFromBlacklist - done
+
+7) rewrite migration function migrateData - done - test done
+
+8) Нет кнопок скрыть/показать объявление - done - test done
+
+9) Кнопка показать пользователя не работает - done - test done
+
+10) При нажатии кнопки скрыть пользователя названия кнопки меняется не у всех объявлений пользователя - done - test done
+
+*) rewrite import/export functions

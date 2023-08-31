@@ -8,6 +8,8 @@ let hide_bool = true
 
 let item_selector = '[data-marker="item"]'
 
+
+
 /*
 TODO
 
@@ -19,134 +21,182 @@ HIDE/SHOW ADD
 
 
 // STORAGE
+function hasNumber(myString) {
+    return /\d/.test(myString);
+}
+
+function syncStore(key, objectToStore) {
+    var jsonstr = JSON.stringify(objectToStore);
+    var i = 0;
+    var storageObj = {};
+
+    // split jsonstr into chunks and store them in an object indexed by `key_i`
+    while (jsonstr.length > 0) {
+        var index = key + "_" + i++;
+
+        // since the key uses up some per-item quota, see how much is left for the value
+        // also trim off 2 for quotes added by storage-time `stringify`
+        const maxLength = chrome.storage.sync.QUOTA_BYTES_PER_ITEM - index.length - 2;
+        var valueLength = jsonstr.length;
+        if (valueLength > maxLength) {
+            valueLength = maxLength;
+        }
+
+        // trim down segment so it will be small enough even when run through `JSON.stringify` again at storage time
+        //max try is QUOTA_BYTES_PER_ITEM to avoid infinite loop
+        var segment = jsonstr.substr(0, valueLength);
+        for (let i = 0; i < chrome.storage.sync.QUOTA_BYTES_PER_ITEM; i++) {
+            const jsonLength = JSON.stringify(segment).length;
+            if (jsonLength > maxLength) {
+                console.log("segment " + i)
+                segment = jsonstr.substr(0, --valueLength);
+            } else {
+                break;
+            }
+        }
+
+        storageObj[index] = segment;
+        jsonstr = jsonstr.substr(valueLength);
+    }
+    chrome.storage.sync.set(storageObj)
+}
+
+function syncGet(key, callback) {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(null, function(items) {
+            const keyArr = new Array();
+            for (let item of Object.keys(items)){
+                if (item.includes(key)){
+                    if (hasNumber(item)){
+                        keyArr.push(item)
+                    }
+                }
+            }
+            chrome.storage.sync.get(keyArr, (items) => {
+                console.log(items)
+                const keys = Object.keys( items );
+                const length = keys.length;
+                let results = "";
+                if(length > 0){
+                    const sepPos = keys[0].lastIndexOf("_");
+                    const prefix = keys[0].substring(0, sepPos);
+                    for(let x = 0; x < length; x ++){
+                        results += items[`${prefix }_${x}`];
+                    }
+                    resolve(JSON.parse(results));
+                    return;
+                }
+                resolve([]);
+
+            })
+        });
+    })
+}
+
+async function checkIfUserInBlacklist(user_id) {
+    try {
+        const blacklist_users = await syncGet("blacklist_users");
+        let search_id = user_id + '_blacklist_user';
+        return blacklist_users.includes(search_id);
+    } catch (error) {
+        console.error(error);
+        return false;
+    }
+}
+
+async function checkIfAdInBlacklist(ad_id) {
+    try {
+        const blacklist_ads = await syncGet("blacklist_ads");
+        let search_id = ad_id + '_blacklist_user';
+        return blacklist_ads.includes(search_id);
+    } catch (error) {
+        console.error(error);
+        return false;
+    }
+}
+
 
 function migrateData() {
     // TODO: Sync func here
-    chrome.storage.sync.get("users_blacklist", function(result) {
-        let oldBlacklist = result.users_blacklist || [];
-        let newBlacklist = {};
+    chrome.storage.sync.get(null, function(result) {
+        console.log(result);
+        let oldBlacklist = result || [];
+        let newBlacklistUsers = result["blacklist_users"] || [];
+        let newBlacklistAds = result["blacklist_ads"] || [];
 
-        oldBlacklist.forEach(function(userId) {
-            newBlacklist[userId + '_blacklist_user'] = true;
+        Object.keys(oldBlacklist).forEach(function(search_id) {
+            if (search_id.includes('_blacklist_user')){
+                if (!newBlacklistUsers.includes(search_id)){
+                    newBlacklistUsers.push(search_id)
+                }
+            }
+            if (search_id.includes('_blacklist_ad')){
+                if (!newBlacklistAds.includes(search_id)){
+                    newBlacklistAds.push(search_id)
+                }
+            }
         });
 
-        // TODO: Sync func here
-        chrome.storage.sync.set(newBlacklist, function() {
-            console.log("Migrated users_blacklist data to new format");
+
+
+        chrome.storage.sync.clear(function () {
+            console.log('Chrome storage cleared.');
+
+            syncStore('blacklist_users', newBlacklistUsers);
+            syncStore('blacklist_ads', newBlacklistAds)
         });
-
-
-    });
-
-    // TODO: Sync func here
-    chrome.storage.sync.get("adds_blacklist", function(result) {
-        let oldBlacklist = result.users_blacklist || [];
-        let newBlacklist = {};
-
-        oldBlacklist.forEach(function(userId) {
-            newBlacklist[userId + '_blacklist_ad'] = true;
-        });
-
-        // TODO: Sync func here
-        chrome.storage.sync.set(newBlacklist, function() {
-            console.log("Migrated adds_blacklist data to new format");
-        });
-
     });
 }
 
 migrateData();
 
+let blacklist_users = [];
+let blacklist_ads = [];
+
+async function load_arrays() {
+    blacklist_users = await syncGet("blacklist_users");
+    blacklist_ads = await syncGet("blacklist_ads");
+}
+
+load_arrays();
+
 
 function addUserToBlacklist(user_id) {
     let search_id = user_id + '_blacklist_user';
-
-    // TODO: Sync func here - rewrite checking user in blacklist
-    chrome.storage.sync.get(search_id, function(result) {
-        if (result[search_id]) {
-            console.log(`${search_id} is already in blacklist`);
-        } else {
-            let data = {};
-            data[search_id] = true;
-
-            // TODO: Sync func here - rewrite add user in blacklist
-            chrome.storage.sync.set(data, function() {
-                console.log(`Added ${search_id} to blacklist`);
-            });
-        }
-    });
+    let in_blacklist = blacklist_users.includes(search_id);
+    if (!in_blacklist){
+        blacklist_users.push(search_id);
+        syncStore('blacklist_users', blacklist_users);
+    }
 }
 
 function addADToBlacklist(ad_id) {
     let search_id = ad_id + '_blacklist_ad';
-
-    // TODO: Sync func here - rewrite checking ad in blacklist
-    chrome.storage.sync.get(search_id, function(result) {
-        if (result[search_id]) {
-            console.log(`${search_id} is already in blacklist`);
-        } else {
-            let data = {};
-            data[search_id] = true;
-
-            // TODO: Sync func here - rewrite add ad in blacklist
-            chrome.storage.sync.set(data, function() {
-                console.log(`Added ${search_id} to blacklist`);
-            });
-        }
-    });
+    let in_blacklist = blacklist_ads.includes(search_id);
+    if (!in_blacklist){
+        blacklist_ads.push(search_id)
+        syncStore('blacklist_ads', blacklist_ads);
+    }
 }
 
 function removeFromBlacklist(username) {
     let search_id = username + '_blacklist_user';
-
-    // TODO: Sync func here - rewrite checking user in blacklist
-    chrome.storage.sync.get(search_id, function(result) {
-        if (result[search_id]) {
-
-            // TODO: Sync func here - rewrite remove user from blacklist
-            chrome.storage.sync.remove(search_id, function() {
-                console.log(`Removed ${search_id} from blacklist`);
-            });
-        } else {
-            console.log(`${search_id} is not in blacklist`);
-        }
-    });
+    let in_blacklist = blacklist_ads.includes(search_id);
+    if (in_blacklist){
+        blacklist_users = blacklist_users.filter(userId => userId !== search_id);
+        syncStore('blacklist_users', blacklist_ads);
+    }
 }
 
 function removeADFromBlacklist(ad_id) {
     let search_id = ad_id + '_blacklist_ad';
-
-    // TODO: Sync func here - rewrite checking ad in blacklist
-    chrome.storage.sync.get(search_id, function(result) {
-        if (result[search_id]) {
-
-            // TODO: Sync func here - rewrite remove ad in blacklist
-            chrome.storage.sync.remove(search_id, function() {
-                console.log(`Removed ${search_id} from ad blacklist`);
-            });
-        } else {
-            console.log(`${search_id} is not in ad blacklist`);
-        }
-    });
+    let in_blacklist = blacklist_ads.includes(search_id);
+    if (in_blacklist){
+        blacklist_ads = blacklist_ads.filter(adId => adId !== search_id);
+        syncStore('blacklist_ads', blacklist_ads);
+    }
 }
 
-function checkUserInBlacklist(user_id, callback) {
-    let search_id = user_id + '_blacklist_user';
-
-    // TODO: Sync func here - rewrite checking user in blacklist
-    chrome.storage.sync.get(search_id, function(result) {
-        callback(result[search_id] ? true : false);
-    });
-}
-
-function checkADInBlacklist(ad_id, callback) {
-    let search_id = ad_id + '_blacklist_ad';
-
-    // TODO: Sync func here - rewrite checking ad in blacklist
-    chrome.storage.sync.get(search_id, function(result) {
-        callback(result[search_id] ? true : false);
-    });
-}
 
 function getADS(){
     return document.querySelectorAll(item_selector)
@@ -236,32 +286,27 @@ function listenerBlacklistADBtn(addID, element){
 function changeADStatus(in_blacklist, element){
     if (in_blacklist === true) {
         element.classList.add("avito_element")
-
         if (hide_bool) {
             element.classList.add("hided_element")
         } else {
             element.classList.remove("hided_element")
         }
-
         let hide_btn = document.getElementsByClassName("hided_elements")[0]
         hide_btn.after(element);
 
     } else {
-
         element.classList.remove("avito_element")
         element.classList.remove("hided_element")
-
         let hide_btn = document.getElementsByClassName("hided_elements")[0]
         hide_btn.before(element);
     }
 }
 
 function hideAddsByUserId(user_id){
-
     createHideBtn()
-
     let adds = document.querySelectorAll('[data-marker="item"]');
     adds.forEach((element) => {
+        const addId = element.getAttribute("data-item-id");
         let divs = element.getElementsByClassName(user_info_div_class)
         if (divs.length > 0) {
             let userData = getData(divs[0])
@@ -279,13 +324,19 @@ function hideAddsByUserId(user_id){
                 let hide_btn = document.getElementsByClassName("hided_elements")[0]
                 hide_btn.after(element);
 
+                let search_id = addId + '_blacklist_ad';
+                let in_blacklist = blacklist_ads.includes(search_id);
+
+                const buttons = element.getElementsByClassName(actions_class)[0] || element.getElementsByClassName(buttons_class)[0];
+                defineBtnTitleUser(buttons, true, userData, element);
+                defineBtnTitleAd(buttons, in_blacklist, addId, element);
             }
         }
     })
 }
 
-
 function showAddsByUserId(user_id){
+
 
     createHideBtn()
 
@@ -299,25 +350,98 @@ function showAddsByUserId(user_id){
             let user_id_current = userData.user_id
             if (user_id === user_id_current){
 
-                // TODO: Sync func here - rewrite checking ad in blacklist
-                chrome.storage.sync.get(addId + '_blacklist_ad', function(result) {
-                    let in_blacklist = result[user_id + "_blacklist_ad"] || false;
+                let search_id = addId + '_blacklist_ad';
+                let in_blacklist = blacklist_ads.includes(search_id);
 
-                    if (in_blacklist === false) {
-
-                        element.classList.remove("avito_element")
-                        element.classList.remove("hided_element")
-
-                        let hide_btn = document.getElementsByClassName("hided_elements")[0]
-                        hide_btn.before(element);
-                    }
-                })
+                const buttons = element.getElementsByClassName(actions_class)[0] || element.getElementsByClassName(buttons_class)[0];
+                defineBtnTitleUser(buttons, false, userData, element);
+                defineBtnTitleAd(buttons, in_blacklist, addId, element);
 
             }
         }
     })
 }
 
+function defineBtnTitleUser(buttons, in_blacklist, userData, element){
+    // функция проверяет наличие кнопки и добавляет/меняет название кнопки пользователя
+
+    const userBtn = buttons.querySelector(".avito_blacklist_user");
+    const text = in_blacklist ? "Показать польз." : "Скрыть польз.";
+    const classBtn = in_blacklist ? "from_blacklist" : "to_blacklist";
+
+
+    if (!userBtn) {
+
+
+        const html = `
+                <div class="avito_blacklist_user">
+                  <div class="messenger-button-root-X8WGM messenger-button-root_fullwidth-AeoEu messenger-button-root_header-cMTcq">
+                    <button class="button-button-CmK9a button-size-s-r9SeD button-default-_Uj_C width-width-12-_MkqF" aria-busy="false">
+                      <span class="button-textBox-_SF60">
+                        <div class="${classBtn}">${text}</div>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              `;
+        buttons.insertAdjacentHTML("beforeend", html);
+        const userBtn = buttons.querySelector(".avito_blacklist_user");
+        userBtn.addEventListener("click", () => {
+            listenerBlacklistBtn(userData, element);
+        });
+    } else {
+
+        if (userBtn.querySelector(".from_blacklist")){
+            let user_button = userBtn.querySelector(".from_blacklist")
+            user_button.className = classBtn;
+            user_button.textContent = text;
+        }
+
+        if (userBtn.querySelector(".to_blacklist")){
+            let user_button = userBtn.querySelector(".to_blacklist")
+            user_button.className = classBtn;
+            user_button.textContent = text;
+        }
+    }
+}
+
+function defineBtnTitleAd(buttons, in_blacklist, addId, element){
+    // функция проверяет наличие кнопки и добавляет/меняет название кнопки объявление
+    const addBtn = buttons.querySelector(".avito_blacklist_add");
+    const text = in_blacklist ? "Показать объяв." : "Скрыть объяв.";
+    const classBtn = in_blacklist ? "from_blacklist" : "to_blacklist";
+
+    if (!addBtn) {
+        const html = `
+                    <div class="avito_blacklist_add">
+                      <div class="messenger-button-root-X8WGM messenger-button-root_fullwidth-AeoEu messenger-button-root_header-cMTcq">
+                        <button class="button-button-CmK9a button-size-s-r9SeD button-default-_Uj_C width-width-12-_MkqF" aria-busy="false">
+                          <span class="button-textBox-_SF60">
+                            <div class="${classBtn}">${text}</div>
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  `;
+        buttons.insertAdjacentHTML("beforeend", html);
+        const addBtn = buttons.querySelector(".avito_blacklist_add");
+        addBtn.addEventListener("click", () => {
+            listenerBlacklistADBtn(addId, element);
+        });
+    } else {
+        if (addBtn.querySelector(".from_blacklist")){
+            let ad_btn = addBtn.querySelector(".from_blacklist")
+            ad_btn.className = classBtn;
+            ad_btn.textContent = text;
+        }
+
+        if (addBtn.querySelector(".to_blacklist")){
+            let ad_btn = addBtn.querySelector(".to_blacklist")
+            ad_btn.className = classBtn;
+            ad_btn.textContent = text;
+        }
+    }
+}
 
 
 function addButton(element, userData){
@@ -331,66 +455,13 @@ function addButton(element, userData){
     //     "add_id": "2473778779"
     // }
 
+
     const addId = element.getAttribute("data-item-id");
     const userId = userData.user_id;
     const buttons = element.getElementsByClassName(actions_class)[0] || element.getElementsByClassName(buttons_class)[0];
 
-    // TODO: Sync func here - rewrite checking user in blacklist
-    chrome.storage.sync.get(userId + "_blacklist_user", function(result) {
-
-        let in_blacklist = result[userId + "_blacklist_user"] || false;
-
-        const userBtn = buttons.querySelector(".avito_blacklist_user");
-        if (!userBtn) {
-            const text = in_blacklist ? "Показать польз." : "Скрыть польз.";
-            const classBtn = in_blacklist ? "from_blacklist" : "to_blacklist";
-            const html = `
-                <div class="avito_blacklist_user">
-                  <div class="messenger-button-root-X8WGM messenger-button-root_fullwidth-AeoEu messenger-button-root_header-cMTcq">
-                    <button class="button-button-CmK9a button-size-s-r9SeD button-default-_Uj_C width-width-12-_MkqF" aria-busy="false">
-                      <span class="button-textBox-_SF60">
-                        <div class="${classBtn}">${text}</div>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              `;
-            buttons.insertAdjacentHTML("beforeend", html);
-            const userBtn = buttons.querySelector(".avito_blacklist_user");
-            userBtn.addEventListener("click", () => {
-                listenerBlacklistBtn(userData, element);
-            });
-        }
-
-    });
-
-    // TODO: Sync func here - rewrite checking ad in blacklist
-    chrome.storage.sync.get(addId + "_blacklist_ad", function(result) {
-
-        let in_blacklist = result[addId + "_blacklist_ad"] || false;
-
-        const addBtn = buttons.querySelector(".avito_blacklist_add");
-        if (!addBtn) {
-            const text = in_blacklist ? "Показать объяв." : "Скрыть объяв.";
-            const classBtn = in_blacklist ? "from_blacklist" : "to_blacklist";
-            const html = `
-                    <div class="avito_blacklist_add">
-                      <div class="messenger-button-root-X8WGM messenger-button-root_fullwidth-AeoEu messenger-button-root_header-cMTcq">
-                        <button class="button-button-CmK9a button-size-s-r9SeD button-default-_Uj_C width-width-12-_MkqF" aria-busy="false">
-                          <span class="button-textBox-_SF60">
-                            <div class="${classBtn}">${text}</div>
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  `;
-            buttons.insertAdjacentHTML("beforeend", html);
-            const addBtn = buttons.querySelector(".avito_blacklist_add");
-            addBtn.addEventListener("click", () => {
-                listenerBlacklistADBtn(addId, element);
-            });
-        }
-    })
+    defineBtnTitleUser(buttons, blacklist_users.includes(userId + '_blacklist_user'), userData, element);
+    defineBtnTitleAd(buttons, blacklist_ads.includes(addId + '_blacklist_ad'), addId, element);
 
 
 }
@@ -411,7 +482,7 @@ function createHideBtn(){
 
     // Функция добавляет элемент в конец списка, под который прячутся все скрытые объявления
 
-    //console.log("createHieBtn");
+    //console.log("createHideBtn");
 
     if (document.getElementsByClassName("hided_elements").length === 0){
         let hided_element = "<h4 class=\"hided_elements\">Показать заблокированные объявления</h4>"
@@ -456,36 +527,13 @@ function addUserButtonsAndListeners(element){
         let userId = userData.user_id
 
         // TODO: Sync func here - rewrite checking user in blacklist
-        chrome.storage.sync.get(userId + "_blacklist_user", function(result) {
 
-            let in_blacklist = result[userId + "_blacklist_user"] || false;
-
-            if (in_blacklist === true) {
-                hideAddsByUserId(userId)
-            } else {
-                showAddsByUserId(userId)
-
-                // TODO: Sync func here - rewrite checking ad in blacklist
-                chrome.storage.sync.get(addId + "_blacklist_ad", function(result) {
-
-                    let in_blacklist = result[addId + "_blacklist_ad"] || false;
-                    changeADStatus(in_blacklist, element);
-                })
-            }
-        })
-
-
-
-        /*
-        chrome.storage.sync.get([user_id], function(result) {
-            let userDataBlacklist = result[user_id]
-            if (userDataBlacklist !== undefined) {
-                hideAddsByUserId(user_id)
-            } else {
-                showAddsByUserId(user_id)
-            }
-        })
-         */
+        if (blacklist_users.includes(userId + '_blacklist_user') ) {
+            hideAddsByUserId(userId)
+        } else {
+            showAddsByUserId(userId)
+            changeADStatus(blacklist_ads.includes(addId + '_blacklist_ad'), element);
+        }
 
         let action_btns = element.getElementsByClassName(actions_class)
         if (action_btns.length > 0) {
@@ -520,15 +568,8 @@ function addUserButtonsAndListeners(element){
 function checkIfUserButtonsHave(){
 
     console.log("Проверка на наличие кнопок")
-
     let btns = document.getElementsByClassName("avito_blacklist_user")
-    if (btns.length > 0 ){
-        //console.log("Кнопки есть")
-        return true
-    } else {
-        //console.log("Кнопки нет")
-        return false
-    }
+    return btns.length > 0
 }
 
 function getDataFromAdd(element){

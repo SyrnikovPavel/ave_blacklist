@@ -11,6 +11,7 @@ function importFromTextUsers() {
         }
     }
 
+    // TODO: change getting function
     chrome.storage.sync.get(null, function (result) {
         const existingDatabase = result || {};
 
@@ -20,12 +21,16 @@ function importFromTextUsers() {
             }
         }
 
+        // TODO: change function for formatting database file
         for (const userID of newUserIDs) {
             existingDatabase[userID + "_blacklist_user"] = true;
         }
 
+
         chrome.storage.sync.clear(function () {
             console.log('Chrome storage cleared.');
+
+            // TODO: change set function
             chrome.storage.sync.set(existingDatabase, function () {
                 console.log('Database updated.');
             });
@@ -50,6 +55,7 @@ function importFromTextAds() {
         }
     }
 
+    // TODO: change getting function
     chrome.storage.sync.get(null, function (result) {
         const existingDatabase = result || {};
 
@@ -59,12 +65,15 @@ function importFromTextAds() {
             }
         }
 
+        // TODO: change function for formatting database file
         for (const adID of newAdIDs) {
             existingDatabase[adID + "_blacklist_ad"] = true;
         }
 
         chrome.storage.sync.clear(function () {
             console.log('Chrome storage cleared.');
+
+            // TODO: change set function
             chrome.storage.sync.set(existingDatabase, function () {
                 console.log('Database updated.');
             });

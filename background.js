@@ -1,4 +1,4 @@
-chrome.runtime.onInstalled.addListener(function (object) {
+/*chrome.runtime.onInstalled.addListener(function (object) {
 
     if (object.reason === chrome.runtime.OnInstalledReason.INSTALL) {
 
@@ -15,4 +15,4 @@ chrome.runtime.onInstalled.addListener(function (object) {
         });
 
     }
-});
+});*/
