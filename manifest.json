@@ -14,7 +14,7 @@
   ],
   "action": {
     "default_popup": "options.html",
-    "default_title": "Blacklist",
+    "default_title": "Avito Blacklist",
     "default_icon": "/images/icon32.png"
   },
   "background": {

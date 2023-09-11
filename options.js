@@ -25,7 +25,6 @@ function syncStore(key, objectToStore) {
         for (let i = 0; i < chrome.storage.sync.QUOTA_BYTES_PER_ITEM; i++) {
             const jsonLength = JSON.stringify(segment).length;
             if (jsonLength > maxLength) {
-                console.log("segment " + i)
                 segment = jsonstr.substr(0, --valueLength);
             } else {
                 break;
@@ -38,7 +37,7 @@ function syncStore(key, objectToStore) {
     chrome.storage.sync.set(storageObj)
 }
 
-function syncGet(key, callback) {
+function syncGet(key) {
     return new Promise((resolve) => {
         chrome.storage.sync.get(null, function(items) {
             const keyArr = new Array();
@@ -50,8 +49,10 @@ function syncGet(key, callback) {
                 }
             }
             chrome.storage.sync.get(keyArr, (items) => {
-                console.log(items)
-                const keys = Object.keys( items );
+
+                const keys = Object.keys(items);
+
+
                 const length = keys.length;
                 let results = "";
                 if(length > 0){
@@ -60,7 +61,8 @@ function syncGet(key, callback) {
                     for(let x = 0; x < length; x ++){
                         results += items[`${prefix }_${x}`];
                     }
-                    resolve(JSON.parse(results));
+                    results = results.replaceAll('[', '').replaceAll(']', ',').replaceAll(' ', '').replaceAll('\"', '').replaceAll('\"', '').split(",")
+                    resolve(results);
                     return;
                 }
                 resolve([]);
@@ -70,69 +72,63 @@ function syncGet(key, callback) {
     })
 }
 
-async function checkIfUserInBlacklist(user_id) {
-    try {
-        const blacklist_users = await syncGet("blacklist_users");
-        let search_id = user_id + '_blacklist_user';
-        return blacklist_users.includes(search_id);
-    } catch (error) {
-        console.error(error);
-        return false;
+
+
+async function exportDatabase() {
+
+    let items = {};
+
+    const blacklist_users = await syncGet("blacklist_users");
+    for (let user_id of blacklist_users){
+        items[user_id] = true
     }
-}
 
+    const blacklist_ads = await syncGet("blacklist_ads");
+    for (let ad_id of blacklist_ads){
+        items[ad_id] = true
+    }
 
-function exportDatabase() {
-    chrome.storage.sync.get(null, function(items) {
-        const serializedData = JSON.stringify(items, null, 2);
-        const blob = new Blob([serializedData], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({
-            url: url,
-            filename: "avito_blacklist_database.json"
-        });
+    console.log(items);
+
+    const serializedData = JSON.stringify(items, null, 2);
+    const blob = new Blob([serializedData], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    chrome.downloads.download({
+        url: url,
+        filename: "avito_blacklist_database.json"
     });
 }
 
-function exportDatabaseBlacklistUsers() {
-    chrome.storage.sync.get(null, function(items) {
-        console.log(items);
-        let users = [];
-        for (let [item, value] of Object.entries(items)) {
-            if (item.includes('_blacklist_user')){
-                if (value){
-                    users.push(item.replace('_blacklist_user', ''))
-                }
-            }
-        }
-        const serializedData = JSON.stringify(users, null, 2);
-        const blob = new Blob([serializedData], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({
-            url: url,
-            filename: "avito_blacklist_users_database.json"
-        });
+async function exportDatabaseBlacklistUsers() {
+    let items = []
+    const blacklist_users = await syncGet("blacklist_users");
+    for (let user_id of blacklist_users){
+        items.push(user_id.replace('_blacklist_user', ''))
+    }
+
+    const serializedData = JSON.stringify(items, null, 2);
+    const blob = new Blob([serializedData], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+
+    chrome.downloads.download({
+        url: url,
+        filename: "avito_blacklist_users_database.json"
     });
 }
 
-function exportDatabaseBlacklistAds() {
-    chrome.storage.sync.get(null, function(items) {
-        console.log(items);
-        let ads = [];
-        for (let [item, value] of Object.entries(items)) {
-            if (item.includes('_blacklist_ad')){
-                if (value){
-                    ads.push(item.replace('_blacklist_ad', ''))
-                }
-            }
-        }
-        const serializedData = JSON.stringify(ads, null, 2);
-        const blob = new Blob([serializedData], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({
-            url: url,
-            filename: "avito_blacklist_ads_database.json"
-        });
+async function exportDatabaseBlacklistAds() {
+    let items = []
+    const blacklist_ads = await syncGet("blacklist_ads");
+    for (let ad_id of blacklist_ads){
+        items.push(ad_id.replace('_blacklist_ad', ''))
+    }
+
+    const serializedData = JSON.stringify(items, null, 2);
+    const blob = new Blob([serializedData], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    chrome.downloads.download({
+        url: url,
+        filename: "avito_blacklist_ads_database.json"
     });
 }
 
@@ -176,18 +172,11 @@ function importFromJSONFile() {
                     }
                 });
 
-                syncStore('blacklist_users', newBlacklistUsers);
-                syncStore('blacklist_ads', newBlacklistAds)
-
-                syncGet('blacklist_users', function(result){
-                    console.log(result)
-                })
-                /*chrome.storage.sync.clear(function() {
+                chrome.storage.sync.clear(function() {
                     console.log('Chrome storage cleared.');
-                    chrome.storage.sync.set(data, function () {
-                        console.log('Imported from file:', data);
-                    });
-                });*/
+                    syncStore('blacklist_users', newBlacklistUsers);
+                    syncStore('blacklist_ads', newBlacklistAds)
+                });
             } catch (error) {
                 console.error('Failed to parse JSON:', error);
             }
@@ -210,26 +199,11 @@ function importFromJSONFileUsers() {
             try {
                 const newUserIDs = JSON.parse(json);
 
-                chrome.storage.sync.get(null, function(result) {
-                    const existingDatabase = result || {};
-
-                    for (let datarow in existingDatabase) {
-                        if (datarow.includes("_blacklist_user")){
-                            delete existingDatabase[datarow];
-                        }
-                    }
-
-                    for (const userID of newUserIDs) {
-                        existingDatabase[userID + "_blacklist_user"] = true;
-                    }
-
-                    chrome.storage.sync.clear(function() {
-                        console.log('Chrome storage cleared.');
-                        chrome.storage.sync.set(existingDatabase, function() {
-                            console.log('Database updated.');
-                        });
-                    });
-                });
+                let blacklist_users = [];
+                for (const userID of newUserIDs) {
+                    blacklist_users.push(userID + "_blacklist_user");
+                }
+                syncStore('blacklist_users', blacklist_users);
 
             } catch (error) {
                 console.error('Failed to parse JSON:', error);
@@ -252,28 +226,11 @@ function importFromJSONFileAds() {
             const json = readerEvent.target.result;
             try {
                 const newAdIDs = JSON.parse(json);
-
-                chrome.storage.sync.get(null, function(result) {
-
-                    const existingDatabase = result || {};
-
-                    for (let datarow in existingDatabase) {
-                        if (datarow.includes("_blacklist_ad")){
-                            delete existingDatabase[datarow];
-                        }
-                    }
-
-                    for (const adID of newAdIDs) {
-                        existingDatabase[adID + "_blacklist_ad"] = true;
-                    }
-
-                    chrome.storage.sync.clear(function() {
-                        console.log('Chrome storage cleared.');
-                        chrome.storage.sync.set(existingDatabase, function() {
-                            console.log('Database updated.');
-                        });
-                    });
-                });
+                let blacklist_ads = [];
+                for (const adID of newAdIDs) {
+                    blacklist_ads.push(adID + "_blacklist_ad");
+                }
+                syncStore('blacklist_ads', blacklist_ads);
 
             } catch (error) {
                 console.error('Failed to parse JSON:', error);

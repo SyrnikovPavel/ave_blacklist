@@ -48,7 +48,6 @@ function syncStore(key, objectToStore) {
         for (let i = 0; i < chrome.storage.sync.QUOTA_BYTES_PER_ITEM; i++) {
             const jsonLength = JSON.stringify(segment).length;
             if (jsonLength > maxLength) {
-                console.log("segment " + i)
                 segment = jsonstr.substr(0, --valueLength);
             } else {
                 break;
@@ -61,7 +60,7 @@ function syncStore(key, objectToStore) {
     chrome.storage.sync.set(storageObj)
 }
 
-function syncGet(key, callback) {
+function syncGet(key) {
     return new Promise((resolve) => {
         chrome.storage.sync.get(null, function(items) {
             const keyArr = new Array();
@@ -73,7 +72,6 @@ function syncGet(key, callback) {
                 }
             }
             chrome.storage.sync.get(keyArr, (items) => {
-                console.log(items)
                 const keys = Object.keys( items );
                 const length = keys.length;
                 let results = "";
@@ -83,7 +81,8 @@ function syncGet(key, callback) {
                     for(let x = 0; x < length; x ++){
                         results += items[`${prefix }_${x}`];
                     }
-                    resolve(JSON.parse(results));
+                    results = results.replaceAll('[', '').replaceAll(']', ',').replaceAll(' ', '').replaceAll('\"', '').replaceAll('\"', '').split(",")
+                    resolve(results);
                     return;
                 }
                 resolve([]);
@@ -116,13 +115,14 @@ async function checkIfAdInBlacklist(ad_id) {
 }
 
 
-function migrateData() {
+async function migrateData() {
     // TODO: Sync func here
-    chrome.storage.sync.get(null, function(result) {
-        console.log(result);
+
+    chrome.storage.sync.get(null, async function(result) {
         let oldBlacklist = result || [];
-        let newBlacklistUsers = result["blacklist_users"] || [];
-        let newBlacklistAds = result["blacklist_ads"] || [];
+        let newBlacklistUsers = await syncGet("blacklist_users") || [];
+        let newBlacklistAds = await syncGet("blacklist_ads") || [];
+
 
         Object.keys(oldBlacklist).forEach(function(search_id) {
             if (search_id.includes('_blacklist_user')){
@@ -135,16 +135,14 @@ function migrateData() {
                     newBlacklistAds.push(search_id)
                 }
             }
+
+            chrome.storage.sync.clear(function () {
+                console.log('Chrome storage cleared.');
+                syncStore('blacklist_users', newBlacklistUsers);
+                syncStore('blacklist_ads', newBlacklistAds)
+            });
         });
 
-
-
-        chrome.storage.sync.clear(function () {
-            console.log('Chrome storage cleared.');
-
-            syncStore('blacklist_users', newBlacklistUsers);
-            syncStore('blacklist_ads', newBlacklistAds)
-        });
     });
 }
 
@@ -162,6 +160,7 @@ load_arrays();
 
 
 function addUserToBlacklist(user_id) {
+
     let search_id = user_id + '_blacklist_user';
     let in_blacklist = blacklist_users.includes(search_id);
     if (!in_blacklist){
@@ -181,10 +180,10 @@ function addADToBlacklist(ad_id) {
 
 function removeFromBlacklist(username) {
     let search_id = username + '_blacklist_user';
-    let in_blacklist = blacklist_ads.includes(search_id);
+    let in_blacklist = blacklist_users.includes(search_id);
     if (in_blacklist){
         blacklist_users = blacklist_users.filter(userId => userId !== search_id);
-        syncStore('blacklist_users', blacklist_ads);
+        syncStore('blacklist_users', blacklist_users);
     }
 }
 
@@ -235,9 +234,11 @@ function listenerBlacklistBtn(userData, element){
         } else {
             removeFromBlacklist(user_id);
             let only_btn = btn.getElementsByClassName("from_blacklist")[0]
+            console.log(only_btn)
             only_btn.innerText = "Скрыть польз."
             only_btn.classList.remove("from_blacklist")
             only_btn.classList.add("to_blacklist")
+            console.log(only_btn)
             showAddsByUserId(user_id)
         }
     }
@@ -350,8 +351,14 @@ function showAddsByUserId(user_id){
             let user_id_current = userData.user_id
             if (user_id === user_id_current){
 
+                let hide_btn = document.getElementsByClassName("hided_elements")[0]
+                hide_btn.before(element);
+
                 let search_id = addId + '_blacklist_ad';
                 let in_blacklist = blacklist_ads.includes(search_id);
+
+                element.classList.remove("avito_element")
+                element.classList.remove("hided_element")
 
                 const buttons = element.getElementsByClassName(actions_class)[0] || element.getElementsByClassName(buttons_class)[0];
                 defineBtnTitleUser(buttons, false, userData, element);
@@ -372,7 +379,6 @@ function defineBtnTitleUser(buttons, in_blacklist, userData, element){
 
     if (!userBtn) {
 
-
         const html = `
                 <div class="avito_blacklist_user">
                   <div class="messenger-button-root-X8WGM messenger-button-root_fullwidth-AeoEu messenger-button-root_header-cMTcq">
@@ -391,13 +397,14 @@ function defineBtnTitleUser(buttons, in_blacklist, userData, element){
         });
     } else {
 
-        if (userBtn.querySelector(".from_blacklist")){
+
+        if (userBtn.querySelector(".from_blacklist") !== null){
             let user_button = userBtn.querySelector(".from_blacklist")
             user_button.className = classBtn;
             user_button.textContent = text;
         }
 
-        if (userBtn.querySelector(".to_blacklist")){
+        if (userBtn.querySelector(".to_blacklist") !== null){
             let user_button = userBtn.querySelector(".to_blacklist")
             user_button.className = classBtn;
             user_button.textContent = text;
@@ -481,8 +488,7 @@ function removeButton(buttons) {
 function createHideBtn(){
 
     // Функция добавляет элемент в конец списка, под который прячутся все скрытые объявления
-
-    //console.log("createHideBtn");
+    
 
     if (document.getElementsByClassName("hided_elements").length === 0){
         let hided_element = "<h4 class=\"hided_elements\">Показать заблокированные объявления</h4>"
