@@ -239,6 +239,14 @@ function importFromJSONFileAds() {
     });
 }
 
+function clearDatabase(){
+    chrome.storage.sync.clear(function() {
+        console.log('Chrome storage cleared.');
+        syncStore('blacklist_users', []);
+        syncStore('blacklist_ads', [])
+    });
+}
+
 function openNewTab(){
     chrome.tabs.create({ url: chrome.runtime.getURL("import_from_text.html") });
 }
@@ -256,5 +264,9 @@ importButtonAd.addEventListener("click", importFromJSONFileAds);
 
 const importText = document.getElementById("importText");
 importText.addEventListener("click", openNewTab);
+
+const clearButton = document.getElementById("clearButton");
+clearButton.addEventListener("click", clearDatabase);
+
 
 
