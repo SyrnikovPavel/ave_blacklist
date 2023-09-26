@@ -9,7 +9,7 @@
 
     } else {
 
-        let externalUrl = "https://docs.google.com/document/d/1GWTfGt7d6uXa6e4KyyDLoVS-oE2ZmsMYD2yxSF6qGz0/edit?usp=sharing";
+        let externalUrl = "https://docs.google.com/document/d/1YUzZC5kDdXqXo0QI-zatldoJXGm6UQIZ8HfLCyHhSqc/edit?usp=sharing";
         chrome.tabs.create({ url: externalUrl }, function (tab) {
             console.log("New tab launched with update_instruction.html")
         });

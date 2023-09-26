@@ -6,6 +6,9 @@ let user_info_href_class = "style-link-STE_U"
 let adds_class = "index-root-KVurS"
 let hide_bool = true
 
+let buttons_in_user_page_class = 'Sidebar-root-h24MJ'
+let badge_bar_id = 'badgebar_v2'
+
 let item_selector = '[data-marker="item"]'
 
 
@@ -18,6 +21,8 @@ REWRITE functions
 HIDE/SHOW ADD
 
 */
+
+
 
 
 // STORAGE
@@ -81,7 +86,7 @@ function syncGet(key) {
                     for(let x = 0; x < length; x ++){
                         results += items[`${prefix }_${x}`];
                     }
-                    results = results.replaceAll('[', '').replaceAll(']', ',').replaceAll(' ', '').replaceAll('\"', '').replaceAll('\"', '').split(",")
+                    results = results.replaceAll('[', '').replaceAll(']', ',').replaceAll(' ', '').replaceAll('\"', '').replaceAll('\"', '').split(",").filter((element) => element !== "")
                     resolve(results);
                     return;
                 }
@@ -578,6 +583,13 @@ function checkIfUserButtonsHave(){
     return btns.length > 0
 }
 
+function checkIfUserButtonsHaveUserPage(){
+
+    console.log("Проверка на наличие кнопок на страницу пользователя")
+    let btns = document.getElementsByClassName('blacklist_user_page')
+    return btns.length > 0
+}
+
 function getDataFromAdd(element){
 
     let id = element.getAttribute('data-item-id');
@@ -698,16 +710,82 @@ function main(){
     //getDataFromDetailAdd()
 }
 
+function draw_UI_in_user_page(){
 
-document.addEventListener("DOMContentLoaded", () => {
-    //console.log("DOM готов!")
-    main();
-});
+    let user_id = window.location.toString().split('/')[4]
+    let search_id = user_id + '_blacklist_user';
 
-const interval = setInterval(function() {
+    let buttons = document.getElementsByClassName(buttons_in_user_page_class)[0]
 
-    if (!checkIfUserButtonsHave()){
-        main()
+    let button_show = "<section id=\"blacklist_info\" class=\"blacklist_user_page\"><div class=\"SubscribeInfo-subscribe-nkSmH\"><button type=\"button\" data-marker=\"remove_from_blacklist\" class=\"styles-module-root-C_ES7 styles-module-root_size_m-_IdhI styles-module-root_preset_secondary-_C3UZ styles-module-root_fullWidth-YF4yL\"><span class=\"styles-module-wrapper-zmlhz\"><span class=\"styles-module-text-_0LXs styles-module-text_size_m-i7N8V\">Показать пользователя</span></span></button></div></section>"
+    let button_hide = "<section id=\"blacklist_info\" class=\"blacklist_user_page\"><div class=\"SubscribeInfo-subscribe-nkSmH\"><button type=\"button\" data-marker=\"add_in_blacklist\" class=\"styles-module-root-C_ES7 styles-module-root_size_m-_IdhI styles-module-root_preset_secondary-_C3UZ styles-module-root_fullWidth-YF4yL\"><span class=\"styles-module-wrapper-zmlhz\"><span class=\"styles-module-text-_0LXs styles-module-text_size_m-i7N8V\">Скрыть пользователя</span></span></button></div></section>"
 
+    if (blacklist_users.includes(search_id)){
+
+        let badge_bar = document.getElementById(badge_bar_id);
+        let html_bl = "<div class=\"ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge\" style=\"--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181\" data-marker=\"badge-102\"><div class=\"ProfileBadge-aside-_0Ky7\"><div class=\"ProfileBadge-icon-wrap-p9n7e\"><img class=\"ProfileBadge-icon-iUIed\" src=\"https://60.img.avito.st/image/1/1.3v4G9ra3qI-xVyBFNvWR3zpUcBW0UXYXeFQ.ZdJ7TPsRy16QtmiICqWohuc48kE3jvh8_F9UOOyoODw\" alt=\"badge icon\" data-marker=\"badge-image-102\"></div></div><div class=\"ProfileBadge-content-o2hDn\"><div class=\"ProfileBadge-title-_Z4By\" data-marker=\"badge-title-102\">Пользователь в ЧС</div><div class=\"ProfileBadge-description-_lbMb\" data-marker=\"badge-description-102\"></div></div></div>"
+        badge_bar.insertAdjacentHTML("afterbegin", html_bl);
+        buttons.insertAdjacentHTML("beforeend", button_show);
+
+        let hide_btn = document.getElementsByClassName("blacklist_user_page")[0]
+
+        // убрать пользователя из ЧС
+        hide_btn.addEventListener("click", () => {
+            removeFromBlacklist(user_id)
+            document.getElementsByClassName("bad_badge")[0].remove();
+            hide_btn.remove();
+        })
+
+        console.log("Пользователь в ЧС")
+    } else {
+        buttons.insertAdjacentHTML("beforeend", button_hide);
+
+        let hide_btn = document.getElementsByClassName("blacklist_user_page")[0]
+
+        // доабвить пользователя из ЧС
+        hide_btn.addEventListener("click", () => {
+            addUserToBlacklist(user_id)
+            hide_btn.remove();
+        })
+        console.log("Пользователь не в ЧС")
     }
-}, 5000);
+}
+
+function router() {
+    const current_url = window.location.toString();
+    if (current_url.includes('www.avito.ru/user/')){
+
+        load_arrays();
+
+        document.addEventListener("DOMContentLoaded", () => {
+            draw_UI_in_user_page()
+        });
+
+        const interval = setInterval(function() {
+            if (!checkIfUserButtonsHaveUserPage()){
+                draw_UI_in_user_page();
+            }
+        }, 500);
+
+
+    } else if (!current_url.includes('q=')){
+        console.log("ad page")
+    } else {
+        console.log("search page")
+
+        document.addEventListener("DOMContentLoaded", () => {
+            //console.log("DOM готов!")
+            main();
+        });
+
+        const interval = setInterval(function() {
+
+            if (!checkIfUserButtonsHave()){
+                main()
+
+            }
+        }, 5000);
+    }
+}
+
+router()

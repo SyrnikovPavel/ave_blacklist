@@ -61,7 +61,7 @@ function syncGet(key) {
                     for(let x = 0; x < length; x ++){
                         results += items[`${prefix }_${x}`];
                     }
-                    results = results.replaceAll('[', '').replaceAll(']', ',').replaceAll(' ', '').replaceAll('\"', '').replaceAll('\"', '').split(",")
+                    results = results.replaceAll('[', '').replaceAll(']', ',').replaceAll(' ', '').replaceAll('\"', '').replaceAll('\"', '').split(",").filter((element) => element !== "")
                     resolve(results);
                     return;
                 }
