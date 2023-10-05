@@ -710,9 +710,24 @@ function main(){
     //getDataFromDetailAdd()
 }
 
+function getElementByXpath(path) {
+    return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+}
+
 function draw_UI_in_user_page(){
 
-    let user_id = window.location.toString().split('/')[4]
+    let user_id;
+
+    if (window.location.toString().includes('www.avito.ru/user/')){
+        user_id = window.location.toString().split('/')[4]
+    } else {
+        user_id = window.location.toString().split('sellerId')[1].replace('=', '')
+    }
+
+    if (user_id === undefined){
+        user_id = getElementByXpath("/html/body/script[1]/text()").data.split('sellerId')[1].split('%22%3A%22')[1].split('%22%2C%22')[0]
+    }
+
     let search_id = user_id + '_blacklist_user';
 
     let buttons = document.getElementsByClassName(buttons_in_user_page_class)[0]
@@ -753,7 +768,7 @@ function draw_UI_in_user_page(){
 
 function router() {
     const current_url = window.location.toString();
-    if (current_url.includes('www.avito.ru/user/')){
+    if (current_url.includes('www.avito.ru/user/') || current_url.includes('sellerId')){
 
         load_arrays();
 
@@ -768,8 +783,6 @@ function router() {
         }, 500);
 
 
-    } else if (!current_url.includes('q=')){
-        console.log("ad page")
     } else {
         console.log("search page")
 

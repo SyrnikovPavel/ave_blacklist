@@ -1,4 +1,4 @@
-/*chrome.runtime.onInstalled.addListener(function (object) {
+chrome.runtime.onInstalled.addListener(function (object) {
 
     if (object.reason === chrome.runtime.OnInstalledReason.INSTALL) {
 
@@ -9,10 +9,10 @@
 
     } else {
 
-        let externalUrl = "https://docs.google.com/document/d/1YUzZC5kDdXqXo0QI-zatldoJXGm6UQIZ8HfLCyHhSqc/edit?usp=sharing";
+        let externalUrl = "https://docs.google.com/document/d/1oui-ue-9S2yqxjCqlUmnG1nYuZSrD9wfCxdNlkWD-sk/edit?usp=sharing";
         chrome.tabs.create({ url: externalUrl }, function (tab) {
             console.log("New tab launched with update_instruction.html")
         });
 
     }
-});*/
+});
