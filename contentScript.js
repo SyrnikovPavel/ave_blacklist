@@ -151,7 +151,7 @@ async function migrateData() {
     });
 }
 
-migrateData();
+/*migrateData();*/
 
 let blacklist_users = [];
 let blacklist_ads = [];
