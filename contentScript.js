@@ -41,7 +41,7 @@ function syncStore(key, objectToStore) {
 
         // since the key uses up some per-item quota, see how much is left for the value
         // also trim off 2 for quotes added by storage-time `stringify`
-        const maxLength = chrome.storage.sync.QUOTA_BYTES_PER_ITEM - index.length - 2;
+        const maxLength = chrome.storage.local.QUOTA_BYTES_PER_ITEM - index.length - 2;
         var valueLength = jsonstr.length;
         if (valueLength > maxLength) {
             valueLength = maxLength;
@@ -50,7 +50,7 @@ function syncStore(key, objectToStore) {
         // trim down segment so it will be small enough even when run through `JSON.stringify` again at storage time
         //max try is QUOTA_BYTES_PER_ITEM to avoid infinite loop
         var segment = jsonstr.substr(0, valueLength);
-        for (let i = 0; i < chrome.storage.sync.QUOTA_BYTES_PER_ITEM; i++) {
+        for (let i = 0; i < chrome.storage.local.QUOTA_BYTES_PER_ITEM; i++) {
             const jsonLength = JSON.stringify(segment).length;
             if (jsonLength > maxLength) {
                 segment = jsonstr.substr(0, --valueLength);
@@ -62,12 +62,12 @@ function syncStore(key, objectToStore) {
         storageObj[index] = segment;
         jsonstr = jsonstr.substr(valueLength);
     }
-    chrome.storage.sync.set(storageObj)
+    chrome.storage.local.set(storageObj)
 }
 
 function syncGet(key) {
     return new Promise((resolve) => {
-        chrome.storage.sync.get(null, function(items) {
+        chrome.storage.local.get(null, function(items) {
             const keyArr = new Array();
             for (let item of Object.keys(items)){
                 if (item.includes(key)){
@@ -76,7 +76,7 @@ function syncGet(key) {
                     }
                 }
             }
-            chrome.storage.sync.get(keyArr, (items) => {
+            chrome.storage.local.get(keyArr, (items) => {
                 const keys = Object.keys( items );
                 const length = keys.length;
                 let results = "";
@@ -121,7 +121,6 @@ async function checkIfAdInBlacklist(ad_id) {
 
 
 async function migrateData() {
-    // TODO: Sync func here
 
     chrome.storage.sync.get(null, async function(result) {
         let oldBlacklist = result || [];
@@ -150,6 +149,30 @@ async function migrateData() {
 
     });
 }
+
+function migrateStorage() {
+    // Step 1: Retrieve all items from storage.sync
+    chrome.storage.sync.get(null, function(items) {
+        if (chrome.runtime.lastError) {
+            console.error('Error retrieving sync storage:', chrome.runtime.lastError);
+            return;
+        }
+
+        // Step 2: Save the retrieved items to storage.local
+        chrome.storage.local.set(items, function() {
+            if (chrome.runtime.lastError) {
+                console.error('Error setting local storage:', chrome.runtime.lastError);
+                return;
+            }
+
+            console.log('Data migrated to local storage successfully.');
+
+        });
+    });
+}
+
+// Call the migration function
+migrateStorage();
 
 /*migrateData();*/
 
