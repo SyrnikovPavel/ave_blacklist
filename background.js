@@ -8,11 +8,11 @@ chrome.runtime.onInstalled.addListener(function (object) {
         });
 
     } else {
-
+        /*
         let externalUrl = "https://docs.google.com/document/d/1ao2aAuFiYrRQjB4Fd7gWIbNaLJagpeJjKkOaN-sH9gI/edit?usp=sharing";
         chrome.tabs.create({ url: externalUrl }, function (tab) {
             console.log("New tab launched with update_instruction.html")
         });
-
+        */
     }
 });

@@ -1,4 +1,8 @@
-let regexp = /user\/(\S*)\//
+let regexp = /user\/(\S*)\/|brands\/(\S*)\?/
+
+// https://www.avito.ru/brands/b272c150d0862951334acb4959fce36e?src=search_seller_info
+// https://www.avito.ru/user/683a062034c7f04de393ec2f84aa9ac6/profile?src=search_seller_info
+
 let buttons_class = "iva-item-aside-GOesg"
 let actions_class = "iva-item-actions-rumkV"
 let user_info_div_class = "iva-item-sellerInfo-_q_Uw"
@@ -262,11 +266,9 @@ function listenerBlacklistBtn(userData, element){
         } else {
             removeFromBlacklist(user_id);
             let only_btn = btn.getElementsByClassName("from_blacklist")[0]
-            console.log(only_btn)
             only_btn.innerText = "Скрыть польз."
             only_btn.classList.remove("from_blacklist")
             only_btn.classList.add("to_blacklist")
-            console.log(only_btn)
             showAddsByUserId(user_id)
         }
     }
@@ -587,7 +589,6 @@ function addUserButtonsAndListeners(element){
         element.getElementsByTagName('div')[0].addEventListener("mouseleave", () => {
             let divs = element.getElementsByClassName(user_info_div_class)
             if (divs.length > 0) {
-
                 let buttons = element.getElementsByClassName(buttons_class)
                 removeButton(buttons)
 
@@ -791,7 +792,7 @@ function draw_UI_in_user_page(){
 
 function router() {
     const current_url = window.location.toString();
-    if (current_url.includes('www.avito.ru/user/') || current_url.includes('sellerId')){
+    if (current_url.includes('www.avito.ru/user/') || current_url.includes('sellerId') || current_url.includes('brands')){
 
         load_arrays();
 
