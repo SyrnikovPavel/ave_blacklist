@@ -1,7 +1,7 @@
 {
   "name": "Ave Blacklist",
   "description": "Расширение для блокировки пользователей и объявлений на Авито (Avito)",
-  "version": "1.0.6",
+  "version": "1.0.6.1",
   "manifest_version": 3,
   "permissions": ["storage", "downloads"],
   "content_scripts": [

@@ -239,7 +239,8 @@ function getData(div){
     if (hrefs.length > 0){
         let href_element = hrefs[hrefs.length - 1]
         let href = href_element.href
-        let user_id = href.match(regexp)[1]
+        let ids = href.match(regexp)
+        let user_id = ids[ids.length-1]
         let user_name = 'NONAME'
         if (href_element.getElementsByTagName("p").length > 0){
             user_name = href_element.getElementsByTagName("p")[0].textContent
@@ -582,7 +583,7 @@ function addUserButtonsAndListeners(element){
             let divs = element.getElementsByClassName(user_info_div_class)
             if (divs.length > 0) {
                 let userData = getData(divs[0])
-                addButton(element, userData)
+                addButton(element, userData);
 
             }
         })
