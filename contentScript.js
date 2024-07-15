@@ -1,4 +1,5 @@
-let regexp = /user\/(\S*)\/|brands\/(\S*)\?/
+let regexp_user = /user\/(\S*)\//
+let regexp_brands = /brands\/(\S*)\?/
 
 // https://www.avito.ru/brands/b272c150d0862951334acb4959fce36e?src=search_seller_info
 // https://www.avito.ru/user/683a062034c7f04de393ec2f84aa9ac6/profile?src=search_seller_info
@@ -239,8 +240,17 @@ function getData(div){
     if (hrefs.length > 0){
         let href_element = hrefs[hrefs.length - 1]
         let href = href_element.href
-        let ids = href.match(regexp)
-        let user_id = ids[ids.length-1]
+        let ids;
+        let user_id;
+
+        if (href.indexOf('user') > 0) {
+            ids = href.match(regexp_user)
+            user_id = ids[1]
+        } else {
+            ids = href.match(regexp_brands)
+            user_id = ids[ids.length-1]
+        }
+
         let user_name = 'NONAME'
         if (href_element.getElementsByTagName("p").length > 0){
             user_name = href_element.getElementsByTagName("p")[0].textContent
