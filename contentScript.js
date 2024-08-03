@@ -753,11 +753,11 @@ function insertBlockedSellerUI(user_id){
     const sidebar = document.querySelector(sellerPageSidebarClass)
     const unblockButtonHtml = '<button type="button" class="sellerPageControlButton removeSellerFromBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Показать пользователя</span></span></button>'
     const badgeHtml = '<div class="ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge" style="--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181" data-marker="badge-102"><div class="ProfileBadge-aside-_0Ky7"><div class="ProfileBadge-icon-wrap-p9n7e"><img class="ProfileBadge-icon-iUIed" src="https://60.img.avito.st/image/1/1.3v4G9ra3qI-xVyBFNvWR3zpUcBW0UXYXeFQ.ZdJ7TPsRy16QtmiICqWohuc48kE3jvh8_F9UOOyoODw" alt="badge icon" data-marker="badge-image-102"></div></div><div class="ProfileBadge-content-o2hDn"><div class="ProfileBadge-title-_Z4By" data-marker="badge-title-102">Пользователь в ЧС</div><div class="ProfileBadge-description-_lbMb" data-marker="badge-description-102"></div></div>'
-    let badge_bar = document.getElementById(badge_bar_id);
+    const badge_bar = document.getElementById(badge_bar_id);
     badge_bar.insertAdjacentHTML("afterbegin", badgeHtml);
     sidebar.insertAdjacentHTML("beforeend", unblockButtonHtml);
 
-    let actionButton = sidebar.querySelector(".removeSellerFromBlacklist")
+    const actionButton = sidebar.querySelector(".removeSellerFromBlacklist")
 
     // убрать пользователя из ЧС
     actionButton.addEventListener("click", () => {
@@ -777,7 +777,7 @@ function insertSellerUI(user_id){
 
     sidebar.insertAdjacentHTML("beforeend", blockButtonHtml);
 
-    let actionButton = sidebar.querySelector(".addSellerToBlacklist")
+    const actionButton = sidebar.querySelector(".addSellerToBlacklist")
 
     // добавить пользователя в ЧС
     actionButton.addEventListener("click", () => {
