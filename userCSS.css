@@ -43,6 +43,14 @@ h4.hided_elements {
     display: none;
 }
 
-.avito_element {
+button.sellerPageControlButton{
+    margin-top: 10px;
+}
 
+button.addSellerToBlacklist {
+    background-color: #a87f03;
+}
+
+button.removeSellerFromBlacklist {
+    background-color: #229c49;
 }

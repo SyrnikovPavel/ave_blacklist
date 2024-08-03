@@ -11,7 +11,7 @@ let user_info_href_class = "style-link-STE_U"
 let adds_class = "index-root-KVurS"
 let hide_bool = true
 
-let buttons_in_user_page_class = 'Sidebar-root-h24MJ'
+const sellerPageSidebarClass = '.Sidebar-root-h24MJ'
 let badge_bar_id = 'badgebar_v2'
 
 let item_selector = '[data-marker="item"]'
@@ -618,11 +618,11 @@ function checkIfUserButtonsHave(){
     return btns.length > 0
 }
 
-function checkIfUserButtonsHaveUserPage(){
+function checkIfSidebarIsProcessed(){
 
-    console.log("Проверка на наличие кнопок на страницу пользователя")
-    let btns = document.getElementsByClassName('blacklist_user_page')
-    return btns.length > 0
+    console.log("Проверка, добавлены ли кнопки в сайдбар на странице продавца")
+    let processedSidebar = document.querySelector('.sidebar-processed')
+    return processedSidebar
 }
 
 function getDataFromAdd(element){
@@ -749,9 +749,57 @@ function getElementByXpath(path) {
     return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 }
 
-function draw_UI_in_user_page(){
+function insertBlockedSellerUI(user_id){
+    const sidebar = document.querySelector(sellerPageSidebarClass)
+    const unblockButtonHtml = '<button type="button" class="sellerPageControlButton removeSellerFromBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Показать пользователя</span></span></button>'
+    const badgeHtml = '<div class="ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge" style="--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181" data-marker="badge-102"><div class="ProfileBadge-aside-_0Ky7"><div class="ProfileBadge-icon-wrap-p9n7e"><img class="ProfileBadge-icon-iUIed" src="https://60.img.avito.st/image/1/1.3v4G9ra3qI-xVyBFNvWR3zpUcBW0UXYXeFQ.ZdJ7TPsRy16QtmiICqWohuc48kE3jvh8_F9UOOyoODw" alt="badge icon" data-marker="badge-image-102"></div></div><div class="ProfileBadge-content-o2hDn"><div class="ProfileBadge-title-_Z4By" data-marker="badge-title-102">Пользователь в ЧС</div><div class="ProfileBadge-description-_lbMb" data-marker="badge-description-102"></div></div>'
+    let badge_bar = document.getElementById(badge_bar_id);
+    badge_bar.insertAdjacentHTML("afterbegin", badgeHtml);
+    sidebar.insertAdjacentHTML("beforeend", unblockButtonHtml);
+
+    let actionButton = sidebar.querySelector(".removeSellerFromBlacklist")
+
+    // убрать пользователя из ЧС
+    actionButton.addEventListener("click", () => {
+        removeFromBlacklist(user_id)
+        sidebar.querySelector(".bad_badge").remove();
+        actionButton.remove();
+        insertSellerUI(user_id)
+    })
+
+    console.log("Пользователь в ЧС")
+
+}
+
+function insertSellerUI(user_id){
+    const sidebar = document.querySelector(sellerPageSidebarClass)
+    const blockButtonHtml = '<button type="button" class="sellerPageControlButton addSellerToBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Скрыть пользователя</span></span></button>'
+
+    sidebar.insertAdjacentHTML("beforeend", blockButtonHtml);
+
+    let actionButton = sidebar.querySelector(".addSellerToBlacklist")
+
+    // добавить пользователя в ЧС
+    actionButton.addEventListener("click", () => {
+        addUserToBlacklist(user_id)
+        actionButton.remove();
+        insertBlockedSellerUI(user_id)
+    })
+    console.log("Пользователь не в ЧС")
+}
+
+
+
+function processSellerPage(){
 
     let user_id;
+
+    const sidebar = document.querySelector(sellerPageSidebarClass)
+
+    if (!sidebar){
+        // sidebar is not yet loaded
+        return
+    }
 
     if (window.location.toString().includes('www.avito.ru/user/')){
         user_id = window.location.toString().split('/')[4]
@@ -762,58 +810,22 @@ function draw_UI_in_user_page(){
     if (user_id === undefined){
         user_id = getElementByXpath("/html/body/script[1]/text()").data.split('sellerId')[1].split('%22%3A%22')[1].split('%22%2C%22')[0]
     }
-
-    let search_id = user_id + '_blacklist_user';
-
-    let buttons = document.getElementsByClassName(buttons_in_user_page_class)[0]
-
-    let button_show = "<section id=\"blacklist_info\" class=\"blacklist_user_page\"><div class=\"SubscribeInfo-subscribe-nkSmH\"><button type=\"button\" data-marker=\"remove_from_blacklist\" class=\"styles-module-root-C_ES7 styles-module-root_size_m-_IdhI styles-module-root_preset_secondary-_C3UZ styles-module-root_fullWidth-YF4yL\"><span class=\"styles-module-wrapper-zmlhz\"><span class=\"styles-module-text-_0LXs styles-module-text_size_m-i7N8V\">Показать пользователя</span></span></button></div></section>"
-    let button_hide = "<section id=\"blacklist_info\" class=\"blacklist_user_page\"><div class=\"SubscribeInfo-subscribe-nkSmH\"><button type=\"button\" data-marker=\"add_in_blacklist\" class=\"styles-module-root-C_ES7 styles-module-root_size_m-_IdhI styles-module-root_preset_secondary-_C3UZ styles-module-root_fullWidth-YF4yL\"><span class=\"styles-module-wrapper-zmlhz\"><span class=\"styles-module-text-_0LXs styles-module-text_size_m-i7N8V\">Скрыть пользователя</span></span></button></div></section>"
-
+    const search_id = user_id + '_blacklist_user';
     if (blacklist_users.includes(search_id)){
-
-        let badge_bar = document.getElementById(badge_bar_id);
-        let html_bl = "<div class=\"ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge\" style=\"--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181\" data-marker=\"badge-102\"><div class=\"ProfileBadge-aside-_0Ky7\"><div class=\"ProfileBadge-icon-wrap-p9n7e\"><img class=\"ProfileBadge-icon-iUIed\" src=\"https://60.img.avito.st/image/1/1.3v4G9ra3qI-xVyBFNvWR3zpUcBW0UXYXeFQ.ZdJ7TPsRy16QtmiICqWohuc48kE3jvh8_F9UOOyoODw\" alt=\"badge icon\" data-marker=\"badge-image-102\"></div></div><div class=\"ProfileBadge-content-o2hDn\"><div class=\"ProfileBadge-title-_Z4By\" data-marker=\"badge-title-102\">Пользователь в ЧС</div><div class=\"ProfileBadge-description-_lbMb\" data-marker=\"badge-description-102\"></div></div></div>"
-        badge_bar.insertAdjacentHTML("afterbegin", html_bl);
-        buttons.insertAdjacentHTML("beforeend", button_show);
-
-        let hide_btn = document.getElementsByClassName("blacklist_user_page")[0]
-
-        // убрать пользователя из ЧС
-        hide_btn.addEventListener("click", () => {
-            removeFromBlacklist(user_id)
-            document.getElementsByClassName("bad_badge")[0].remove();
-            hide_btn.remove();
-        })
-
-        console.log("Пользователь в ЧС")
+        insertBlockedSellerUI(user_id)
     } else {
-        buttons.insertAdjacentHTML("beforeend", button_hide);
-
-        let hide_btn = document.getElementsByClassName("blacklist_user_page")[0]
-
-        // доабвить пользователя из ЧС
-        hide_btn.addEventListener("click", () => {
-            addUserToBlacklist(user_id)
-            hide_btn.remove();
-        })
-        console.log("Пользователь не в ЧС")
+        insertSellerUI(user_id)
     }
+    sidebar.classList.add("sidebar-processed")
 }
 
 function router() {
     const current_url = window.location.toString();
     if (current_url.includes('www.avito.ru/user/') || current_url.includes('sellerId') || current_url.includes('brands')){
 
-        load_arrays();
-
-        document.addEventListener("DOMContentLoaded", () => {
-            draw_UI_in_user_page()
-        });
-
         const interval = setInterval(function() {
-            if (!checkIfUserButtonsHaveUserPage()){
-                draw_UI_in_user_page();
+            if (!checkIfSidebarIsProcessed()){
+                processSellerPage();
             }
         }, 500);
 
