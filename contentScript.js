@@ -801,14 +801,31 @@ function processSellerPage(){
         return
     }
 
-    if (window.location.toString().includes('www.avito.ru/user/')){
+
+    if (window.location.toString().includes('www.avito.ru/brands/')){
+        user_id = window.location.toString().split('/')[4]
+    } else if (window.location.toString().includes('www.avito.ru/user/')){
         user_id = window.location.toString().split('/')[4]
     } else {
-        user_id = window.location.toString().split('sellerId')[1].replace('=', '')
+        if (window.location.toString().split('sellerId').length > 1){
+            user_id = window.location.toString().split('sellerId')[1].replace('=', '')
+        }
     }
 
     if (user_id === undefined){
-        user_id = getElementByXpath("/html/body/script[1]/text()").data.split('sellerId')[1].split('%22%3A%22')[1].split('%22%2C%22')[0]
+        let links = document.querySelectorAll('link[rel="canonical"]')
+        if (links.length > 0){
+            let href = links[0]
+            if (href.indexOf('user') > 0) {
+                ids = href.match(regexp_user)
+                user_id = ids[1]
+            } else {
+                ids = href.match(regexp_brands)
+                user_id = ids[ids.length-1]
+            }
+        } else {
+            user_id = getElementByXpath("/html/body/script[1]/text()").data.split('sellerId')[1].split('%22%3A%22')[1].split('%22%2C%22')[0]
+        }
     }
     const search_id = user_id + '_blacklist_user';
     if (blacklist_users.includes(search_id)){

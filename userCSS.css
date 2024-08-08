@@ -48,9 +48,21 @@ button.sellerPageControlButton{
 }
 
 button.addSellerToBlacklist {
-    background-color: #a87f03;
+    background-color: #ff6163;
+    color: white;
+}
+
+button.addSellerToBlacklist:hover {
+    background-color: #f71b47;
 }
 
 button.removeSellerFromBlacklist {
-    background-color: #229c49;
+    background-color: #00aaff;
+    color: white;
 }
+
+button.removeSellerFromBlacklist:hover {
+    background-color: #0099f7;
+    color: white;
+}
+
