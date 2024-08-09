@@ -30,19 +30,6 @@
     width: 65%;
 }
 
-h4.hided_elements {
-    font-size: 18px;
-    color: gray;
-    line-height: 25px;
-    margin: 0 0 20px;
-    border-bottom: 2px solid gray;
-    cursor: pointer;
-}
-
-.hided_element {
-    display: none;
-}
-
 button.sellerPageControlButton{
     margin-top: 10px;
 }
@@ -64,5 +51,46 @@ button.removeSellerFromBlacklist {
 button.removeSellerFromBlacklist:hover {
     background-color: #0099f7;
     color: white;
+}
+.button-container{
+    display: none;
+}
+
+[data-marker="item"]:hover .button-container{
+    position: absolute;
+    display: flex;
+    z-index: 10000;
+    right: 0;
+}
+
+.items-galleryItem-_KQnH:hover .button-container{
+    top: 0;
+}
+
+.items-listItem-Gd1jN:hover .button-container{
+    bottom: 0;
+}
+
+.custom-hr{
+    border-color: orange;
+}
+
+.hidden-container{
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.custom-button:hover{
+    background-color: white;
+    border-radius: 3px;
+}
+
+.custom-button.block:hover{
+    stroke: red;
+}
+
+.custom-button.unblock:hover{
+    stroke: green;
 }
 
