@@ -1,25 +1,3 @@
-button.sellerPageControlButton {
-  margin-top: 10px;
-}
-
-button.addSellerToBlacklist {
-  background-color: #ff6163;
-  color: white;
-}
-
-button.addSellerToBlacklist:hover {
-  background-color: #f71b47;
-}
-
-button.removeSellerFromBlacklist {
-  background-color: #00aaff;
-  color: white;
-}
-
-button.removeSellerFromBlacklist:hover {
-  background-color: #0099f7;
-  color: white;
-}
 .button-container {
   display: none;
 }
