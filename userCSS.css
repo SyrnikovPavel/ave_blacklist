@@ -38,9 +38,9 @@
 }
 
 .custom-button.block:hover {
-  stroke: red;
+  stroke: red!important;
 }
 
 .custom-button.unblock:hover {
-  stroke: green;
+  stroke: green!important;
 }
