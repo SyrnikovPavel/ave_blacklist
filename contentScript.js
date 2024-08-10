@@ -1,9 +1,3 @@
-let regexp_user = /user\/(\S*)\//;
-let regexp_brands = /brands\/(\S*)\?/;
-
-// https://www.avito.ru/brands/b272c150d0862951334acb4959fce36e?src=search_seller_info
-// https://www.avito.ru/user/683a062034c7f04de393ec2f84aa9ac6/profile?src=search_seller_info
-
 const offersRootSelector = ".index-root-KVurS";
 const offersContainerSelector = ".items-items-kAJAg";
 const offersSelector = '[data-marker="item"]';
