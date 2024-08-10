@@ -228,6 +228,7 @@ function createHiddenContainer() {
   // Create the <summary> element
   const summaryElement = document.createElement("summary");
   summaryElement.textContent = "Скрытые объявления";
+  summaryElement.classList.add("custom-summary");
 
   // Create content for the <details> element
   const contentElement = document.createElement("div");

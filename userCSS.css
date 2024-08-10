@@ -1,96 +1,68 @@
-.iva-item-actions-rumkV .avito_blacklist{
-    width: 0.6em;
-    padding-right: 0px;
-}
-
-.iva-item-aside-GOesg .avito_blacklist{
-    font-size: 14px;
-    line-height: 20px;
-    min-height: 30px;
-    min-width: 148px;
-    margin-left: 12px;
-    padding-right: 12px;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    border-width: 1px;
-    border-radius: 3px;
-    width: 148px;
-}
-
-.avito_blacklist{
-    font-size: 14px;
-    line-height: 20px;
-    min-height: 30px;
-    min-width: 148px;
-    padding-right: 12px;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    border-width: 1px;
-    border-radius: 3px;
-    width: 65%;
-}
-
-button.sellerPageControlButton{
-    margin-top: 10px;
+button.sellerPageControlButton {
+  margin-top: 10px;
 }
 
 button.addSellerToBlacklist {
-    background-color: #ff6163;
-    color: white;
+  background-color: #ff6163;
+  color: white;
 }
 
 button.addSellerToBlacklist:hover {
-    background-color: #f71b47;
+  background-color: #f71b47;
 }
 
 button.removeSellerFromBlacklist {
-    background-color: #00aaff;
-    color: white;
+  background-color: #00aaff;
+  color: white;
 }
 
 button.removeSellerFromBlacklist:hover {
-    background-color: #0099f7;
-    color: white;
+  background-color: #0099f7;
+  color: white;
 }
-.button-container{
-    display: none;
-}
-
-[data-marker="item"]:hover .button-container{
-    position: absolute;
-    display: flex;
-    z-index: 10000;
-    right: 0;
+.button-container {
+  display: none;
 }
 
-.items-galleryItem-_KQnH:hover .button-container{
-    top: 0;
+[data-marker="item"]:hover .button-container {
+  position: absolute;
+  display: flex;
+  z-index: 10000;
+  right: 0;
 }
 
-.items-listItem-Gd1jN:hover .button-container{
-    bottom: 0;
+.items-galleryItem-_KQnH:hover .button-container {
+  top: 0;
 }
 
-.custom-hr{
-    border-color: orange;
+.items-listItem-Gd1jN:hover .button-container {
+  bottom: 0;
 }
 
-.hidden-container{
-    margin-top: 20px;
-    display: flex;
-    flex-wrap: wrap;
+.custom-hr {
+  border-color: orange;
 }
 
-.custom-button:hover{
-    background-color: white;
-    border-radius: 3px;
+.custom-summary {
+  cursor: pointer;
+  user-select: none;
 }
 
-.custom-button.block:hover{
-    stroke: red;
+.hidden-container {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
 }
 
-.custom-button.unblock:hover{
-    stroke: green;
+.custom-button:hover {
+  background-color: white;
+  border-radius: 3px;
 }
 
+.custom-button.block:hover {
+  stroke: red;
+}
+
+.custom-button.unblock:hover {
+  stroke: green;
+}
