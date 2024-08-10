@@ -7,6 +7,7 @@ let regexp_brands = /brands\/(\S*)\?/;
 const offersRootSelector = ".index-root-KVurS";
 const offersContainerSelector = ".items-items-kAJAg";
 const offersSelector = '[data-marker="item"]';
+const logPrefix = "[ave]";
 
 const sellerPageSidebarClass = ".Sidebar-root-h24MJ";
 const badge_bar_id = "badgebar_v2";
@@ -151,66 +152,102 @@ function migrateStorage() {
   // Step 1: Retrieve all items from storage.sync
   chrome.storage.sync.get(null, function (items) {
     if (chrome.runtime.lastError) {
-      console.error("Error retrieving sync storage:", chrome.runtime.lastError);
+      console.error(`${logPrefix} Error retrieving sync storage:`, chrome.runtime.lastError);
       return;
     }
 
     // Step 2: Save the retrieved items to storage.local
     chrome.storage.local.set(items, function () {
       if (chrome.runtime.lastError) {
-        console.error("Error setting local storage:", chrome.runtime.lastError);
+        console.error(`${logPrefix} Error setting local storage:`, chrome.runtime.lastError);
         return;
       }
 
-      console.log("Data migrated to local storage successfully.");
+      console.log(`${logPrefix} Data migrated to local storage successfully.`);
     });
   });
 }
 
-function addUserToBlacklist(user_id) {
-  let search_id = user_id + "_blacklist_user";
-  let in_blacklist = blacklist_users.includes(search_id);
-  if (!in_blacklist) {
-    blacklist_users.push(search_id);
-    syncStore("blacklist_users", blacklist_users);
+function getSellerId(initialData) {
+  return initialData.data.ssrData.initData.result.value.data.customLink || initialData.data.ssrData.initData.result.value.data.profileUserHash;
+}
+
+function getCatalogData(initialData) {
+  const catalogKeyString = "@avito"
+  const avitoKey = Object.keys(initialData).find((key) => key.startsWith(catalogKeyString));
+
+  if (avitoKey) {
+    const catalogItems = initialData[avitoKey].data.catalog.items;
+    return catalogItems.filter((item) => item.hasOwnProperty("categoryId"));
+  } else {
+    console.error(`${logPrefix} Catalog Key ${catalogKeyString} not found`);
   }
 }
 
-function addADToBlacklist(ad_id) {
-  let search_id = ad_id + "_blacklist_ad";
-  let in_blacklist = blacklist_ads.includes(search_id);
-  if (!in_blacklist) {
-    blacklist_ads.push(search_id);
-    syncStore("blacklist_ads", blacklist_ads);
+function parseInitialData() {
+  const scripts = document.querySelectorAll("script");
+  const targetScript = Array.from(scripts).find((script) => script.textContent.includes("window.__initialData__"));
+  try {
+    const scriptContent = decodeURIComponent(targetScript.innerHTML);
+
+    // Find the start and end indexes of __initialData__ JSON
+    const startIndex = scriptContent.indexOf('window.__initialData__ = "') + 'window.__initialData__ = "'.length;
+    const endIndex = scriptContent.indexOf('";\nwindow.__mfe__');
+
+    // Extract the JSON string
+    const jsonString = scriptContent.substring(startIndex, endIndex);
+
+    // Parse the JSON string into a JavaScript object
+    const initialData = JSON.parse(jsonString);
+    return initialData;
+  } catch (error) {
+    console.error(`${logPrefix} Error parsing script:`, error);
   }
+  return null;
 }
 
-function removeUserFromBlacklist(user_id) {
-  let search_id = user_id + "_blacklist_user";
-  let in_blacklist = blacklist_users.includes(search_id);
-  if (in_blacklist) {
-    blacklist_users = blacklist_users.filter((userId) => userId !== search_id);
-    syncStore("blacklist_users", blacklist_users);
+function addUserToBlacklist(userId) {
+  let searchId = userId + "_blacklist_user";
+  let inBlacklist = blacklistUsers.includes(searchId);
+  if (!inBlacklist) {
+    blacklistUsers.push(searchId);
+    syncStore("blacklistUsers", blacklistUsers);
   }
+  console.log(`${logPrefix} продавец ${userId} добавлен в блеклист`);
 }
 
-function removeADFromBlacklist(ad_id) {
-  let search_id = ad_id + "_blacklist_ad";
-  let in_blacklist = blacklist_ads.includes(search_id);
-  if (in_blacklist) {
-    blacklist_ads = blacklist_ads.filter((adId) => adId !== search_id);
-    syncStore("blacklist_ads", blacklist_ads);
+function addADToBlacklist(offerId) {
+  let searchId = offerId + "_blacklist_ad";
+  let inBlacklist = blacklistOffers.includes(searchId);
+  if (!inBlacklist) {
+    blacklistOffers.push(searchId);
+    syncStore("blacklistOffers", blacklistOffers);
   }
+  console.log(`${logPrefix} объявление ${offerId} добавлено в блеклист`);
 }
 
-function getOfferInfo(offerElement) {
-  const userUrl = offerElement.querySelector(".iva-item-userInfoStep-dWwGU a")?.href;
-  if (!userUrl) {
-    // parse script element to get seller info
+function removeUserFromBlacklist(userId) {
+  let searchId = userId + "_blacklist_user";
+  let inBlacklist = blacklistUsers.includes(searchId);
+  if (inBlacklist) {
+    blacklistUsers = blacklistUsers.filter((userId) => userId !== searchId);
+    syncStore("blacklistUsers", blacklistUsers);
   }
-  const userId = userUrl?.split("/")[4];
-  const offerId = offerElement.getAttribute("data-item-id");
-  return { offerId, userId };
+  console.log(`${logPrefix} продавец ${userId} удален из блеклиста`);
+}
+
+function removeADFromBlacklist(offerId) {
+  let searchId = offerId + "_blacklist_ad";
+  let inBlacklist = blacklistOffers.includes(searchId);
+  if (inBlacklist) {
+    blacklistOffers = blacklistOffers.filter((adId) => adId !== searchId);
+    syncStore("blacklistOffers", blacklistOffers);
+  }
+  console.log(`${logPrefix} объявление ${offerId} удалено из блеклиста`);
+}
+
+function getOfferId(offerElement) {
+  return offerElement.getAttribute("data-item-id");
 }
 
 function createHiddenContainer() {
@@ -246,14 +283,14 @@ function createHiddenContainer() {
 }
 
 function checkIfOffersAreProcessed() {
-  console.log("Проверка на наличие кнопок");
+  console.log(`${logPrefix} Проверка на наличие кнопок`);
   const lastOffer = document.querySelector(offersContainerSelector).lastChild;
   const button = lastOffer?.querySelector(".custom-button");
   return button;
 }
 
 function checkIfSidebarIsProcessed() {
-  console.log("Проверка, добавлены ли кнопки в сайдбар на странице продавца");
+  console.log(`${logPrefix} Проверка, добавлены ли кнопки в сайдбар на странице продавца`);
   let processedSidebar = document.querySelector(".sidebar-processed");
   return processedSidebar;
 }
@@ -460,15 +497,16 @@ function updateOfferState(offerElement, offerInfo) {
 
   const offerIsHidden = hiddenContainer.contains(offerElement);
 
-  const userIsBlacklisted = offerInfo.userId && blacklist_users.includes(offerInfo.userId + "_blacklist_user");
-  const offerIsBlacklisted = blacklist_ads.includes(offerInfo.offerId + "_blacklist_ad");
+  const userIsBlacklisted = offerInfo.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
+  const offerIsBlacklisted = blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
   if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
     // hide offer
     hiddenContainer.appendChild(offerElement);
-    console.log(`объявление ${offerInfo.offerId} спрятано`);
+    console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
     // unhide
     document.querySelector(offersContainerSelector).prepend(offerElement);
+    console.log(`${logPrefix} объявление ${offerInfo.offerId} восстановлено`);
   }
 
   const buttonContainer = offerElement.querySelector(".button-container");
@@ -480,18 +518,16 @@ function updateOfferState(offerElement, offerInfo) {
 
 function processSearchPage() {
   const offerElements = document.querySelectorAll(offersSelector);
-
   for (const offerElement of offerElements) {
-    const offerInfo = getOfferInfo(offerElement);
-    updateOfferState(offerElement, offerInfo);
+    const offerId = getOfferId(offerElement);
+    const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
+    const sellerUrl = currentOfferData.iva.UserInfoStep[0].payload.profile.link;
+    const userId = sellerUrl?.split("/")[2]?.split("?")[0];
+    updateOfferState(offerElement, { offerId, userId });
   }
 }
 
-function getElementByXpath(path) {
-  return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-}
-
-function insertBlockedSellerUI(user_id) {
+function insertBlockedSellerUI(userId) {
   const sidebar = document.querySelector(sellerPageSidebarClass);
   const unblockButtonHtml =
     '<button type="button" class="sellerPageControlButton removeSellerFromBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Показать пользователя</span></span></button>';
@@ -505,16 +541,14 @@ function insertBlockedSellerUI(user_id) {
 
   // убрать пользователя из ЧС
   actionButton.addEventListener("click", () => {
-    removeUserFromBlacklist(user_id);
+    removeUserFromBlacklist(userId);
     sidebar.querySelector(".bad_badge").remove();
     actionButton.remove();
-    insertSellerUI(user_id);
+    insertSellerUI(userId);
   });
-
-  console.log("Пользователь в ЧС");
 }
 
-function insertSellerUI(user_id) {
+function insertSellerUI(userId) {
   const sidebar = document.querySelector(sellerPageSidebarClass);
   const blockButtonHtml =
     '<button type="button" class="sellerPageControlButton addSellerToBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Скрыть пользователя</span></span></button>';
@@ -525,16 +559,13 @@ function insertSellerUI(user_id) {
 
   // добавить пользователя в ЧС
   actionButton.addEventListener("click", () => {
-    addUserToBlacklist(user_id);
+    addUserToBlacklist(userId);
     actionButton.remove();
-    insertBlockedSellerUI(user_id);
+    insertBlockedSellerUI(userId);
   });
-  console.log("Пользователь не в ЧС");
 }
 
-function processSellerPage() {
-  let user_id;
-
+function processSellerPage(userId) {
   const sidebar = document.querySelector(sellerPageSidebarClass);
 
   if (!sidebar) {
@@ -542,66 +573,56 @@ function processSellerPage() {
     return;
   }
 
-  if (window.location.toString().includes("www.avito.ru/brands/")) {
-    user_id = window.location.toString().split("/")[4];
-  } else if (window.location.toString().includes("www.avito.ru/user/")) {
-    user_id = window.location.toString().split("/")[4];
+  const searchId = userId + "_blacklist_user";
+  if (blacklistUsers.includes(searchId)) {
+    insertBlockedSellerUI(userId);
   } else {
-    if (window.location.toString().split("sellerId").length > 1) {
-      user_id = window.location.toString().split("sellerId")[1].replace("=", "");
-    }
-  }
-
-  if (user_id === undefined) {
-    let links = document.querySelectorAll('link[rel="canonical"]');
-    if (links.length > 0) {
-      let href = links[0];
-      if (href.indexOf("user") > 0) {
-        ids = href.match(regexp_user);
-        user_id = ids[1];
-      } else {
-        ids = href.match(regexp_brands);
-        user_id = ids[ids.length - 1];
-      }
-    } else {
-      user_id = getElementByXpath("/html/body/script[1]/text()").data.split("sellerId")[1].split("%22%3A%22")[1].split("%22%2C%22")[0];
-    }
-  }
-  const search_id = user_id + "_blacklist_user";
-  if (blacklist_users.includes(search_id)) {
-    insertBlockedSellerUI(user_id);
-  } else {
-    insertSellerUI(user_id);
+    insertSellerUI(userId);
   }
   sidebar.classList.add("sidebar-processed");
 }
 
 function main() {
-  const current_url = window.location.toString();
-  if (current_url.includes("www.avito.ru/user/") || current_url.includes("sellerId") || current_url.includes("brands")) {
+  const currentUrl = window.location.toString();
+  if (currentUrl.includes("www.avito.ru/user/") || currentUrl.includes("sellerId") || currentUrl.includes("brands")) {
+    console.log(`${logPrefix} user page`);
+
+    let userId;
+
+    document.addEventListener("readystatechange", () => {
+      if (document.readyState === "interactive") {
+        const initialData = parseInitialData();
+        userId = getSellerId(initialData);
+        processSellerPage(userId);
+      }
+    });
+
     const interval = setInterval(function () {
       if (!checkIfSidebarIsProcessed()) {
-        processSellerPage();
+        processSellerPage(userId);
       }
     }, 500);
   } else {
-    console.log("search page");
+    console.log(`${logPrefix} search page`);
 
-    document.addEventListener("DOMContentLoaded", () => {
-      //console.log("DOM готов!")
-      main();
+    document.addEventListener("readystatechange", () => {
+      if (document.readyState === "interactive") {
+        const initialData = parseInitialData();
+        catalogData = getCatalogData(initialData);
+        processSearchPage(catalogData);
+      }
     });
 
     const interval = setInterval(function () {
       if (!checkIfOffersAreProcessed()) {
-        processSearchPage();
+        processSearchPage(catalogData);
       }
     }, 5000);
   }
 }
 async function load_arrays() {
-  blacklist_users = await syncGet("blacklist_users");
-  blacklist_ads = await syncGet("blacklist_ads");
+  blacklistUsers = await syncGet("blacklistUsers");
+  blacklistOffers = await syncGet("blacklistOffers");
 }
 
 // Call the migration function
@@ -609,8 +630,10 @@ migrateStorage();
 
 /*migrateData();*/
 
-let blacklist_users = [];
-let blacklist_ads = [];
+let catalogData;
+
+let blacklistUsers = [];
+let blacklistOffers = [];
 
 load_arrays();
 
