@@ -413,7 +413,7 @@ function insertBlockSellerButton(offerElement, offerInfo) {
   buttonContainer.appendChild(blockButton);
   blockButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    addUserToBlacklist(offerInfo.userId);
+    if (offerInfo.userId) addUserToBlacklist(offerInfo.userId);
     buttonContainer.remove();
     processSearchPage();
   });
@@ -457,7 +457,7 @@ function insertUnblockSellerButton(offerElement, offerInfo) {
   buttonContainer.appendChild(blockButton);
   blockButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    removeUserFromBlacklist(offerInfo.userId);
+    if (offerInfo.userId) removeUserFromBlacklist(offerInfo.userId);
     buttonContainer.remove();
     processSearchPage();
   });
@@ -512,7 +512,9 @@ function updateOfferState(offerElement, offerInfo) {
   const buttonContainer = offerElement.querySelector(".button-container");
   if (buttonContainer) buttonContainer.remove();
 
-  userIsBlacklisted ? insertUnblockSellerButton(offerElement, offerInfo) : insertBlockSellerButton(offerElement, offerInfo);
+  if (offerInfo.userId) {
+    userIsBlacklisted ? insertUnblockSellerButton(offerElement, offerInfo) : insertBlockSellerButton(offerElement, offerInfo);
+  }
   offerIsBlacklisted ? insertUnblockOfferButton(offerElement, offerInfo) : insertBlockOfferButton(offerElement, offerInfo);
 }
 
@@ -521,7 +523,7 @@ function processSearchPage() {
   for (const offerElement of offerElements) {
     const offerId = getOfferId(offerElement);
     const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
-    const sellerUrl = currentOfferData.iva.UserInfoStep[0].payload.profile.link;
+    const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
     const userId = sellerUrl?.split("/")[2]?.split("?")[0];
     updateOfferState(offerElement, { offerId, userId });
   }
