@@ -330,28 +330,51 @@ function insertButtonContainer(offerElement) {
   return container;
 }
 
+const restoreOfferWithOrder = (offerElement, offerInfo) => {
+  const originalParent = originalParents[offerInfo.offerId];
+  const indexInCatalog = catalogData.findIndex(offer => offer.id === Number(offerInfo.offerId));
+
+  const findSibling = (start, step, end) => {
+    for (let i = start; step > 0 ? i < end : i >= end; i += step) {
+      const siblingElement = originalParent.querySelector(`[data-item-id="${catalogData[i].id}"]`);
+      if (siblingElement) return { element: siblingElement, prepend: step > 0 };
+    }
+    return null;
+  };
+
+  // ищем ближайшее предыдущее объявление в родителе, или следующее
+  const sibling = findSibling(indexInCatalog + 1, 1, catalogData.length) || 
+                  findSibling(indexInCatalog - 1, -1, 0);
+
+  if (sibling) {
+    // Вставляем перед или после родителя, в зависимости от направления поиска
+    originalParent.insertBefore(offerElement, sibling.prepend ? sibling.element : sibling.element.nextSibling);
+  } else {
+    // Если других нет, добавить в конец
+    originalParent.appendChild(offerElement);
+  }
+  console.log(`${logPrefix} объявление ${offerInfo.offerId} восстановлено`);
+};
+
+
 function updateOfferState(offerElement, offerInfo) {
   const hiddenContainer = createHiddenContainer();
-
   const offerIsHidden = hiddenContainer.contains(offerElement);
-
   const userIsBlacklisted = offerInfo.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
   const offerIsBlacklisted = blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
+
   if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
-    // сохраняем родителя, чтоб при восстановлении добавить туда, где оно и было
-    offerInfo.originalParent = offerElement.parentNode
-    // скрываем
+    // Сохраняем оригинального родителя
+    originalParents[offerInfo.offerId] = offerElement.parentNode;
+    // прячем объявление
     hiddenContainer.appendChild(offerElement);
     console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
-    // восстановливаем
-    offerInfo.originalParent.append(offerElement);
-    console.log(`${logPrefix} объявление ${offerInfo.offerId} восстановлено`);
+    restoreOfferWithOrder(offerElement, offerInfo)
   }
 
   const buttonContainer = offerElement.querySelector(".button-container");
   if (buttonContainer) buttonContainer.remove();
-
   if (offerInfo.userId) {
     userIsBlacklisted ? insertUnblockSellerButton(offerElement, offerInfo) : insertBlockSellerButton(offerElement, offerInfo);
   }
@@ -468,6 +491,7 @@ async function load_arrays() {
 }
 
 let catalogData;
+const originalParents = {}
 
 let blacklistUsers = [];
 let blacklistOffers = [];
