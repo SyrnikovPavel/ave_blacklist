@@ -1,68 +1,46 @@
-.iva-item-actions-rumkV .avito_blacklist{
-    width: 0.6em;
-    padding-right: 0px;
+.button-container {
+  display: none;
 }
 
-.iva-item-aside-GOesg .avito_blacklist{
-    font-size: 14px;
-    line-height: 20px;
-    min-height: 30px;
-    min-width: 148px;
-    margin-left: 12px;
-    padding-right: 12px;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    border-width: 1px;
-    border-radius: 3px;
-    width: 148px;
+[data-marker="item"]:hover .button-container {
+  position: absolute;
+  display: flex;
+  z-index: 10000;
+  right: 0;
 }
 
-.avito_blacklist{
-    font-size: 14px;
-    line-height: 20px;
-    min-height: 30px;
-    min-width: 148px;
-    padding-right: 12px;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    border-width: 1px;
-    border-radius: 3px;
-    width: 65%;
+.items-galleryItem-_KQnH:hover .button-container {
+  top: 0;
 }
 
-h4.hided_elements {
-    font-size: 18px;
-    color: gray;
-    line-height: 25px;
-    margin: 0 0 20px;
-    border-bottom: 2px solid gray;
-    cursor: pointer;
+.items-listItem-Gd1jN:hover .button-container {
+  bottom: 0;
 }
 
-.hided_element {
-    display: none;
+.custom-hr {
+  border-color: orange;
 }
 
-button.sellerPageControlButton{
-    margin-top: 10px;
+.custom-summary {
+  cursor: pointer;
+  user-select: none;
 }
 
-button.addSellerToBlacklist {
-    background-color: #ff6163;
-    color: white;
+.hidden-container {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
 }
 
-button.addSellerToBlacklist:hover {
-    background-color: #f71b47;
+.custom-button:hover {
+  background-color: white;
+  border-radius: 3px;
 }
 
-button.removeSellerFromBlacklist {
-    background-color: #00aaff;
-    color: white;
+.custom-button.block:hover {
+  stroke: red!important;
 }
 
-button.removeSellerFromBlacklist:hover {
-    background-color: #0099f7;
-    color: white;
+.custom-button.unblock:hover {
+  stroke: green!important;
 }
-
