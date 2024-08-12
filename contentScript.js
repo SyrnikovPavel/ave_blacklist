@@ -6,7 +6,6 @@ const logPrefix = "[ave]";
 const sellerPageSidebarClass = ".Sidebar-root-h24MJ";
 const badge_bar_id = "badgebar_v2";
 
-
 // STORAGE
 function hasNumber(myString) {
   return /\d/.test(myString);
@@ -110,7 +109,7 @@ function getSellerId(initialData) {
 }
 
 function getCatalogData(initialData) {
-  const catalogKeyString = "@avito"
+  const catalogKeyString = "@avito";
   const avitoKey = Object.keys(initialData).find((key) => key.startsWith(catalogKeyString));
 
   if (avitoKey) {
@@ -118,7 +117,7 @@ function getCatalogData(initialData) {
     const extraItems = initialData[avitoKey].data.catalog.extraBlockItems;
     let allItems = catalogItems.concat(extraItems);
     allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
-    return allItems
+    return allItems;
   } else {
     console.error(`${logPrefix} Catalog Key ${catalogKeyString} not found`);
   }
@@ -332,7 +331,7 @@ function insertButtonContainer(offerElement) {
 
 const restoreOfferWithOrder = (offerElement, offerInfo) => {
   const originalParent = originalParents[offerInfo.offerId];
-  const indexInCatalog = catalogData.findIndex(offer => offer.id === Number(offerInfo.offerId));
+  const indexInCatalog = catalogData.findIndex((offer) => offer.id === Number(offerInfo.offerId));
 
   const findSibling = (start, step, end) => {
     for (let i = start; step > 0 ? i < end : i >= end; i += step) {
@@ -343,8 +342,7 @@ const restoreOfferWithOrder = (offerElement, offerInfo) => {
   };
 
   // ищем ближайшее предыдущее объявление в родителе, или следующее
-  const sibling = findSibling(indexInCatalog + 1, 1, catalogData.length) || 
-                  findSibling(indexInCatalog - 1, -1, 0);
+  const sibling = findSibling(indexInCatalog + 1, 1, catalogData.length) || findSibling(indexInCatalog - 1, -1, 0);
 
   if (sibling) {
     // Вставляем перед или после родителя, в зависимости от направления поиска
@@ -355,7 +353,6 @@ const restoreOfferWithOrder = (offerElement, offerInfo) => {
   }
   console.log(`${logPrefix} объявление ${offerInfo.offerId} восстановлено`);
 };
-
 
 function updateOfferState(offerElement, offerInfo) {
   const hiddenContainer = createHiddenContainer();
@@ -370,7 +367,7 @@ function updateOfferState(offerElement, offerInfo) {
     hiddenContainer.appendChild(offerElement);
     console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
-    restoreOfferWithOrder(offerElement, offerInfo)
+    restoreOfferWithOrder(offerElement, offerInfo);
   }
 
   const buttonContainer = offerElement.querySelector(".button-container");
@@ -491,7 +488,7 @@ async function load_arrays() {
 }
 
 let catalogData;
-const originalParents = {}
+const originalParents = {};
 
 let blacklistUsers = [];
 let blacklistOffers = [];
