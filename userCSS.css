@@ -18,7 +18,7 @@
 }
 
 .custom-hr {
-  border-color: orange;
+  border-color: #0af;
 }
 
 .custom-summary {
@@ -43,4 +43,8 @@
 
 .custom-button.unblock:hover {
   stroke: green!important;
+}
+
+.sellerPageControlButton{
+    margin-top: 8px;
 }

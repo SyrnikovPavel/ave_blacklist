@@ -6,14 +6,6 @@ const logPrefix = "[ave]";
 const sellerPageSidebarClass = ".Sidebar-root-h24MJ";
 const badge_bar_id = "badgebar_v2";
 
-/*
-TODO
-
-REWRITE functions
-
-HIDE/SHOW ADD
-
-*/
 
 // STORAGE
 function hasNumber(myString) {
@@ -92,55 +84,6 @@ function syncGet(key) {
     });
   });
 }
-
-// async function checkIfUserInBlacklist(user_id) {
-//   try {
-//     const blacklist_users = await syncGet("blacklist_users");
-//     let search_id = user_id + "_blacklist_user";
-//     return blacklist_users.includes(search_id);
-//   } catch (error) {
-//     console.error(error);
-//     return false;
-//   }
-// }
-
-// async function checkIfAdInBlacklist(ad_id) {
-//   try {
-//     const blacklist_ads = await syncGet("blacklist_ads");
-//     let search_id = ad_id + "_blacklist_user";
-//     return blacklist_ads.includes(search_id);
-//   } catch (error) {
-//     console.error(error);
-//     return false;
-//   }
-// }
-
-// async function migrateData() {
-//   chrome.storage.sync.get(null, async function (result) {
-//     let oldBlacklist = result || [];
-//     let newBlacklistUsers = (await syncGet("blacklist_users")) || [];
-//     let newBlacklistAds = (await syncGet("blacklist_ads")) || [];
-
-//     Object.keys(oldBlacklist).forEach(function (search_id) {
-//       if (search_id.includes("_blacklist_user")) {
-//         if (!newBlacklistUsers.includes(search_id)) {
-//           newBlacklistUsers.push(search_id);
-//         }
-//       }
-//       if (search_id.includes("_blacklist_ad")) {
-//         if (!newBlacklistAds.includes(search_id)) {
-//           newBlacklistAds.push(search_id);
-//         }
-//       }
-
-//       chrome.storage.sync.clear(function () {
-//         console.log("Chrome storage cleared.");
-//         syncStore("blacklist_users", newBlacklistUsers);
-//         syncStore("blacklist_ads", newBlacklistAds);
-//       });
-//     });
-//   });
-// }
 
 function migrateStorage() {
   // Step 1: Retrieve all items from storage.sync
@@ -289,108 +232,6 @@ function checkIfSidebarIsProcessed() {
   return processedSidebar;
 }
 
-// function getDataFromAdd(element) {
-//   let id = element.getAttribute("data-item-id");
-//   let name;
-//   let price;
-//   let current_datetime = new Date().toLocaleString("ru-RU", {
-//     year: "numeric",
-//     month: "numeric",
-//     day: "numeric",
-//     hour: "2-digit",
-//     minute: "2-digit",
-//   });
-
-//   let names = element.querySelectorAll('[itemprop="name"]');
-//   if (names.length > 0) {
-//     name = names[0].textContent;
-//   }
-
-//   let prices = element.querySelectorAll('[itemprop="price"]');
-//   if (prices.length > 0) {
-//     price = prices[0].getAttribute("content");
-//   }
-
-//   return {
-//     id: id,
-//     name: name,
-//     price: price,
-//     datetime: current_datetime,
-//   };
-// }
-
-// function getDataFromDetailAdd() {
-//   let id;
-//   let lat;
-//   let lon;
-//   let name;
-//   let address;
-//   let description;
-//   let user;
-
-//   let divs_for_id = document.querySelectorAll('div[class="style-item-map-wrapper-ElFsX style-expanded-x335n"]');
-//   if (divs_for_id.length > 0) {
-//     id = divs_for_id[0].getAttribute("data-item-id");
-//     lat = divs_for_id[0].getAttribute("data-map-lat");
-//     lon = divs_for_id[0].getAttribute("data-map-lon");
-//   }
-
-//   let divs_for_name = document.querySelectorAll('span[itemprop="name"]');
-//   if (divs_for_name.length > 0) {
-//     name = divs_for_name[0].textContent;
-//   }
-
-//   let divs_for_location = document.querySelectorAll('div[itemprop="address"]');
-//   if (divs_for_location.length > 0) {
-//     address = divs_for_location[0].textContent;
-//   }
-
-//   let divs_for_description = document.querySelectorAll('div[itemprop="description"]');
-//   if (divs_for_description.length > 0) {
-//     description = divs_for_description[0].textContent;
-//   }
-
-//   let divs_for_seller = document.querySelectorAll('div[data-marker="item-view/seller-info"]');
-//   if (divs_for_seller.length > 0) {
-//     let div_seller = divs_for_seller[0];
-//     let href;
-//     let user_id;
-//     let user_name;
-
-//     let hrefs = div_seller.querySelectorAll('a[data-marker="seller-link/link"]');
-//     if (hrefs.length > 0) {
-//       href = hrefs[0].getAttribute("href");
-//       user_id = href.match(regexp)[1];
-//       user_name = hrefs[0].querySelectorAll("span")[0].textContent;
-//     }
-
-//     let amount_adds = "0";
-//     let amount_adds_divs = document.querySelectorAll('div[class="subscription-buttons-row-VT27g"]');
-//     if (amount_adds_divs.length > 0) {
-//       amount_adds = amount_adds_divs[0].textContent.replace(" объявлений пользователя", "").replace(" объявления пользователя", "");
-//     }
-
-//     user = {
-//       id: user_id,
-//       url: href,
-//       name: user_name,
-//       amount_adds: amount_adds,
-//     };
-//   }
-
-//   console.log({
-//     id: id,
-//     location: {
-//       lat: lat,
-//       lon: lon,
-//       address: address,
-//     },
-//     name: name,
-//     description: description,
-//     user: user,
-//   });
-// }
-
 function insertBlockSellerButton(offerElement, offerInfo) {
   let buttonContainer = offerElement.querySelector(".button-container");
   if (!buttonContainer) {
@@ -518,7 +359,14 @@ function processSearchPage() {
     const offerId = getOfferId(offerElement);
     const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
     const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-    const userId = sellerUrl?.split("/")[2]?.split("?")[0];
+    let userId = sellerUrl?.split("/")[2]?.split("?")[0];
+
+    if (userId === undefined){
+      // если объявлений из текущей локации мало, то показываются объявления из других регионов. у таких объявлений не определялся userId из catalogData, добавил фикс
+      let offer = offerElement.querySelectorAll('a[class="styles-module-root-iSkj3 styles-module-root_noVisited-qJP5D styles-module-root_preset_black-PbPLe"]')[0]
+      userId = offer.href.split("/")[4]?.split("?")[0];
+    }
+
     updateOfferState(offerElement, { offerId, userId });
   }
 }
@@ -620,11 +468,6 @@ async function load_arrays() {
   blacklistUsers = await syncGet("blacklistUsers");
   blacklistOffers = await syncGet("blacklistOffers");
 }
-
-// Call the migration function
-migrateStorage();
-
-/*migrateData();*/
 
 let catalogData;
 
