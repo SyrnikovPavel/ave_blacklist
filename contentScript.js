@@ -115,7 +115,10 @@ function getCatalogData(initialData) {
 
   if (avitoKey) {
     const catalogItems = initialData[avitoKey].data.catalog.items;
-    return catalogItems.filter((item) => item.hasOwnProperty("categoryId"));
+    const extraItems = initialData[avitoKey].data.catalog.extraBlockItems;
+    let allItems = catalogItems.concat(extraItems);
+    allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
+    return allItems
   } else {
     console.error(`${logPrefix} Catalog Key ${catalogKeyString} not found`);
   }
@@ -335,12 +338,14 @@ function updateOfferState(offerElement, offerInfo) {
   const userIsBlacklisted = offerInfo.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
   const offerIsBlacklisted = blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
   if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
-    // hide offer
+    // сохраняем родителя, чтоб при восстановлении добавить туда, где оно и было
+    offerInfo.originalParent = offerElement.parentNode
+    // скрываем
     hiddenContainer.appendChild(offerElement);
     console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
-    // unhide
-    document.querySelector(offersContainerSelector).prepend(offerElement);
+    // восстановливаем
+    offerInfo.originalParent.append(offerElement);
     console.log(`${logPrefix} объявление ${offerInfo.offerId} восстановлено`);
   }
 
@@ -359,14 +364,7 @@ function processSearchPage() {
     const offerId = getOfferId(offerElement);
     const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
     const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-    let userId = sellerUrl?.split("/")[2]?.split("?")[0];
-
-    if (userId === undefined){
-      // если объявлений из текущей локации мало, то показываются объявления из других регионов. у таких объявлений не определялся userId из catalogData, добавил фикс
-      let offer = offerElement.querySelectorAll('a[class="styles-module-root-iSkj3 styles-module-root_noVisited-qJP5D styles-module-root_preset_black-PbPLe"]')[0]
-      userId = offer.href.split("/")[4]?.split("?")[0];
-    }
-
+    const userId = sellerUrl?.split("/")[2]?.split("?")[0];
     updateOfferState(offerElement, { offerId, userId });
   }
 }
