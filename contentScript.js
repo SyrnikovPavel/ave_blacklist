@@ -322,22 +322,22 @@ function updateOfferState(offerElement, offerInfo) {
 
   if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
     // клонируем оригинальное объявление
-    const offerElementClone = offerElement.cloneNode(true)
+    const offerElementClone = offerElement.cloneNode(true);
     // прячем оригинальное объявление
-    offerElement.style.display = "none"
+    offerElement.style.display = "none";
     // кладем клон в "скрытый" контейнер
     hiddenContainer.appendChild(offerElementClone);
     // переназначаем клон как offerElement, чтоб добавить к нему кнопки позже
-    offerElement = offerElementClone
+    offerElement = offerElementClone;
     console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
     // удаляем объявление их скрытых
-    offerElement.remove()
+    offerElement.remove();
     // находим оригинальное "скрытое" объявление
     // переназначаем offerElement, чтоб добавить к нему кнопки позже
-    offerElement = document.querySelector(`[data-item-id="${offerInfo.offerId}"]`)
+    offerElement = document.querySelector(`[data-item-id="${offerInfo.offerId}"]`);
     // показываем его
-    offerElement.style.display = "block"
+    offerElement.style.display = "block";
   }
 
   // добавляем контейнер с кнопками
@@ -414,7 +414,7 @@ function waitForInitData(node) {
     const checkInterval = 50;
 
     const intervalId = setInterval(() => {
-      if (node.textContent.includes('__mfe__')) {
+      if (node.textContent.includes("__mfe__")) {
         clearInterval(intervalId);
         resolve(node.textContent);
       }
@@ -424,55 +424,56 @@ function waitForInitData(node) {
 
 async function main() {
   const currentUrl = window.location.toString();
-  const userPageStrings = ["www.avito.ru/user/", "sellerId", "brands"]
-  const isUserPage = userPageStrings.some(str => currentUrl.includes(str));
+  const userPageStrings = ["www.avito.ru/user/", "sellerId", "brands"];
+  const isUserPage = userPageStrings.some((str) => currentUrl.includes(str));
   if (isUserPage) console.log(`${logPrefix} user page`);
   else console.log(`${logPrefix} search page`);
-  
+
   const target = document;
-  let initialData
+  let initialData;
 
   const observer = new MutationObserver(function (mutations) {
-
     mutations.forEach(function (mutation) {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach(async function (node) {
-          if (node?.classList?.toString().includes("styles-module-theme-_4Zlk styles-module-theme-kvanA") &&
-          node.querySelector('.ExtendedProfile-root-i6PQx')) {
+          if (
+            node?.classList?.toString().includes("styles-module-theme-_4Zlk styles-module-theme-kvanA") &&
+            node.querySelector(".ExtendedProfile-root-i6PQx")
+          ) {
             console.log(`${logPrefix} страница продваца обновлена`);
-            if (!initialData) return
-            let userId = getSellerId(initialData)
-            processSellerPage(userId)
+            if (!initialData) return;
+            let userId = getSellerId(initialData);
+            processSellerPage(userId);
           }
           if (node?.classList?.toString().includes("index-root-KVurS")) {
             console.log(`${logPrefix} offersRootSelector обновлен`);
-            if (!initialData) return
-            try{
+            if (!initialData) return;
+            try {
               catalogData = getCatalogData(initialData);
               processSearchPage(catalogData);
-            }catch{
+            } catch {
               console.log(`${logPrefix} ошибка парсинга данных каталога`);
             }
           }
           if (node?.classList?.toString().includes("styles-singlePageWrapper-eKDyt")) {
             console.log(`${logPrefix} singlePageWrapper обновлен`);
-            if (!initialData) return
-            try{
+            if (!initialData) return;
+            try {
               catalogData = getCatalogData(initialData);
               processSearchPage(catalogData);
-            }catch{
+            } catch {
               console.log(`${logPrefix} ошибка парсинга данных каталога`);
             }
           }
           if (node.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__")) {
             // waitForInitData нужен, чтоб получить полные данные, если получить сразу, текст будет обрезан
-            await waitForInitData(node)
-            initialData = parseInitialData(node.innerHTML)
+            await waitForInitData(node);
+            initialData = parseInitialData(node.innerHTML);
             console.log(`${logPrefix} initialData avaliable`);
-            if (isUserPage){
-              let userId = getSellerId(initialData)
-              processSellerPage(userId)
-            }else{
+            if (isUserPage) {
+              let userId = getSellerId(initialData);
+              processSellerPage(userId);
+            } else {
               catalogData = getCatalogData(initialData);
               processSearchPage(catalogData);
             }
