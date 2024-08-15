@@ -123,18 +123,16 @@ function getCatalogData(initialData) {
   }
 }
 
-function parseInitialData() {
-  const scripts = document.querySelectorAll("script");
-  const targetScript = Array.from(scripts).find((script) => script.textContent.includes("window.__initialData__"));
+function parseInitialData(initialDataContent) {
   try {
-    const scriptContent = decodeURIComponent(targetScript.innerHTML);
+    initialDataContent = decodeURIComponent(initialDataContent);
 
     // Find the start and end indexes of __initialData__ JSON
-    const startIndex = scriptContent.indexOf('window.__initialData__ = "') + 'window.__initialData__ = "'.length;
-    const endIndex = scriptContent.indexOf('";\nwindow.__mfe__');
+    const startIndex = initialDataContent.indexOf('window.__initialData__ = "') + 'window.__initialData__ = "'.length;
+    const endIndex = initialDataContent.indexOf('";\nwindow.__mfe__');
 
     // Extract the JSON string
-    const jsonString = scriptContent.substring(startIndex, endIndex);
+    const jsonString = initialDataContent.substring(startIndex, endIndex);
 
     // Parse the JSON string into a JavaScript object
     const initialData = JSON.parse(jsonString);
@@ -219,19 +217,6 @@ function createHiddenContainer() {
   offersRoot.appendChild(detailsElement);
 
   return contentElement;
-}
-
-function checkIfOffersAreProcessed() {
-  console.log(`${logPrefix} Проверка на наличие кнопок`);
-  const lastOffer = document.querySelector(offersContainerSelector).lastChild;
-  const button = lastOffer?.querySelector(".custom-button");
-  return button;
-}
-
-function checkIfSidebarIsProcessed() {
-  console.log(`${logPrefix} Проверка, добавлены ли кнопки в сайдбар на странице продавца`);
-  let processedSidebar = document.querySelector(".sidebar-processed");
-  return processedSidebar;
 }
 
 function insertBlockSellerButton(offerElement, offerInfo) {
@@ -337,22 +322,22 @@ function updateOfferState(offerElement, offerInfo) {
 
   if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
     // клонируем оригинальное объявление
-    const offerElementClone = offerElement.cloneNode(true)
+    const offerElementClone = offerElement.cloneNode(true);
     // прячем оригинальное объявление
-    offerElement.style.display = "none"
+    offerElement.style.display = "none";
     // кладем клон в "скрытый" контейнер
     hiddenContainer.appendChild(offerElementClone);
     // переназначаем клон как offerElement, чтоб добавить к нему кнопки позже
-    offerElement = offerElementClone
+    offerElement = offerElementClone;
     console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
     // удаляем объявление их скрытых
-    offerElement.remove()
+    offerElement.remove();
     // находим оригинальное "скрытое" объявление
     // переназначаем offerElement, чтоб добавить к нему кнопки позже
-    offerElement = document.querySelector(`[data-item-id="${offerInfo.offerId}"]`)
+    offerElement = document.querySelector(`[data-item-id="${offerInfo.offerId}"]`);
     // показываем его
-    offerElement.style.display = "block"
+    offerElement.style.display = "block";
   }
 
   // добавляем контейнер с кнопками
@@ -414,13 +399,6 @@ function insertSellerUI(userId) {
 }
 
 function processSellerPage(userId) {
-  const sidebar = document.querySelector(sellerPageSidebarClass);
-
-  if (!sidebar) {
-    // sidebar is not yet loaded
-    return;
-  }
-
   const searchId = userId + "_blacklist_user";
   if (blacklistUsers.includes(searchId)) {
     insertBlockedSellerUI(userId);
@@ -430,44 +408,88 @@ function processSellerPage(userId) {
   sidebar.classList.add("sidebar-processed");
 }
 
-function main() {
-  const currentUrl = window.location.toString();
-  if (currentUrl.includes("www.avito.ru/user/") || currentUrl.includes("sellerId") || currentUrl.includes("brands")) {
-    console.log(`${logPrefix} user page`);
+function waitForInitData(node) {
+  // ждем когда initial data загрузится в dom полностью
+  return new Promise((resolve) => {
+    const checkInterval = 50;
 
-    let userId;
-
-    document.addEventListener("readystatechange", () => {
-      if (document.readyState === "interactive") {
-        const initialData = parseInitialData();
-        userId = getSellerId(initialData);
-        processSellerPage(userId);
+    const intervalId = setInterval(() => {
+      if (node.textContent.includes("__mfe__")) {
+        clearInterval(intervalId);
+        resolve(node.textContent);
       }
-    });
-
-    const interval = setInterval(function () {
-      if (!checkIfSidebarIsProcessed()) {
-        processSellerPage(userId);
-      }
-    }, 500);
-  } else {
-    console.log(`${logPrefix} search page`);
-
-    document.addEventListener("readystatechange", () => {
-      if (document.readyState === "interactive") {
-        const initialData = parseInitialData();
-        catalogData = getCatalogData(initialData);
-        processSearchPage(catalogData);
-      }
-    });
-
-    const interval = setInterval(function () {
-      if (!checkIfOffersAreProcessed()) {
-        processSearchPage(catalogData);
-      }
-    }, 5000);
-  }
+    }, checkInterval);
+  });
 }
+
+async function main() {
+  const currentUrl = window.location.toString();
+  const userPageStrings = ["www.avito.ru/user/", "sellerId", "brands"];
+  const isUserPage = userPageStrings.some((str) => currentUrl.includes(str));
+  if (isUserPage) console.log(`${logPrefix} user page`);
+  else console.log(`${logPrefix} search page`);
+
+  const target = document;
+  let initialData;
+
+  const observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach(async function (node) {
+          if (
+            node?.classList?.toString().includes("styles-module-theme-_4Zlk styles-module-theme-kvanA") &&
+            node.querySelector(".ExtendedProfile-root-i6PQx")
+          ) {
+            console.log(`${logPrefix} страница продваца обновлена`);
+            if (!initialData) return;
+            let userId = getSellerId(initialData);
+            processSellerPage(userId);
+          }
+          if (node?.classList?.toString().includes("index-root-KVurS")) {
+            console.log(`${logPrefix} offersRootSelector обновлен`);
+            if (!initialData) return;
+            try {
+              catalogData = getCatalogData(initialData);
+              processSearchPage(catalogData);
+            } catch {
+              console.log(`${logPrefix} ошибка парсинга данных каталога`);
+            }
+          }
+          if (node?.classList?.toString().includes("styles-singlePageWrapper-eKDyt")) {
+            console.log(`${logPrefix} singlePageWrapper обновлен`);
+            if (!initialData) return;
+            try {
+              catalogData = getCatalogData(initialData);
+              processSearchPage(catalogData);
+            } catch {
+              console.log(`${logPrefix} ошибка парсинга данных каталога`);
+            }
+          }
+          if (node.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__")) {
+            // waitForInitData нужен, чтоб получить полные данные, если получить сразу, текст будет обрезан
+            await waitForInitData(node);
+            initialData = parseInitialData(node.innerHTML);
+            console.log(`${logPrefix} initialData avaliable`);
+            if (isUserPage) {
+              let userId = getSellerId(initialData);
+              processSellerPage(userId);
+            } else {
+              catalogData = getCatalogData(initialData);
+              processSearchPage(catalogData);
+            }
+          }
+        });
+      }
+    });
+  });
+
+  // Configuration of the observer:
+  const config = { attributes: false, childList: true, subtree: true };
+
+  // Start observing the target node for configured mutations
+  observer.observe(target, config);
+}
+
 async function load_arrays() {
   blacklistUsers = await syncGet("blacklistUsers");
   blacklistOffers = await syncGet("blacklistOffers");
