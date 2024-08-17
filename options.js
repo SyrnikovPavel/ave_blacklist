@@ -267,7 +267,7 @@ importText.addEventListener("click", openNewTab);
 
 const clearButton = document.getElementById("clearButton");
 clearButton.addEventListener("click", () => {
-    alert("База данных будет очищена, вы уверены?");
+    confirm("База данных будет очищена, вы уверены?");
     clearDatabase();
   });
 
