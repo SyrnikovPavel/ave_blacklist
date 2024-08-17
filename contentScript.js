@@ -6,6 +6,11 @@ const logPrefix = "[ave]";
 const sellerPageSidebarClass = ".Sidebar-root-h24MJ";
 const badge_bar_id = "badgebar_v2";
 
+// browser compatibility
+if (typeof browser === 'undefined') {
+  var browser = chrome;
+}
+
 // STORAGE
 function hasNumber(myString) {
   return /\d/.test(myString);
@@ -22,7 +27,7 @@ function syncStore(key, objectToStore) {
 
     // since the key uses up some per-item quota, see how much is left for the value
     // also trim off 2 for quotes added by storage-time `stringify`
-    const maxLength = chrome.storage.local.QUOTA_BYTES_PER_ITEM - index.length - 2;
+    const maxLength = browser.storage.local.QUOTA_BYTES_PER_ITEM - index.length - 2;
     var valueLength = jsonstr.length;
     if (valueLength > maxLength) {
       valueLength = maxLength;
@@ -31,7 +36,7 @@ function syncStore(key, objectToStore) {
     // trim down segment so it will be small enough even when run through `JSON.stringify` again at storage time
     //max try is QUOTA_BYTES_PER_ITEM to avoid infinite loop
     var segment = jsonstr.substr(0, valueLength);
-    for (let i = 0; i < chrome.storage.local.QUOTA_BYTES_PER_ITEM; i++) {
+    for (let i = 0; i < browser.storage.local.QUOTA_BYTES_PER_ITEM; i++) {
       const jsonLength = JSON.stringify(segment).length;
       if (jsonLength > maxLength) {
         segment = jsonstr.substr(0, --valueLength);
@@ -43,12 +48,12 @@ function syncStore(key, objectToStore) {
     storageObj[index] = segment;
     jsonstr = jsonstr.substr(valueLength);
   }
-  chrome.storage.local.set(storageObj);
+  browser.storage.local.set(storageObj);
 }
 
 function syncGet(key) {
   return new Promise((resolve) => {
-    chrome.storage.local.get(null, function (items) {
+    browser.storage.local.get(null, function (items) {
       const keyArr = new Array();
       for (let item of Object.keys(items)) {
         if (item.includes(key)) {
@@ -57,7 +62,7 @@ function syncGet(key) {
           }
         }
       }
-      chrome.storage.local.get(keyArr, (items) => {
+      browser.storage.local.get(keyArr, (items) => {
         const keys = Object.keys(items);
         const length = keys.length;
         let results = "";
@@ -86,16 +91,16 @@ function syncGet(key) {
 
 function migrateStorage() {
   // Step 1: Retrieve all items from storage.sync
-  chrome.storage.sync.get(null, function (items) {
-    if (chrome.runtime.lastError) {
-      console.error(`${logPrefix} Error retrieving sync storage:`, chrome.runtime.lastError);
+  browser.storage.sync.get(null, function (items) {
+    if (browser.runtime.lastError) {
+      console.error(`${logPrefix} Error retrieving sync storage:`, browser.runtime.lastError);
       return;
     }
 
     // Step 2: Save the retrieved items to storage.local
-    chrome.storage.local.set(items, function () {
-      if (chrome.runtime.lastError) {
-        console.error(`${logPrefix} Error setting local storage:`, chrome.runtime.lastError);
+    browser.storage.local.set(items, function () {
+      if (browser.runtime.lastError) {
+        console.error(`${logPrefix} Error setting local storage:`, browser.runtime.lastError);
         return;
       }
 
