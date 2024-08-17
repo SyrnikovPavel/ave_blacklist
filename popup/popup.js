@@ -253,7 +253,7 @@ function clearDatabase(){
 }
 
 function openNewTab(){
-    browser.tabs.create({ url: browser.runtime.getURL("import_from_text.html") });
+    chrome.tabs.create({ url: chrome.runtime.getURL("popup/import_from_text.html") });
 }
 
 
