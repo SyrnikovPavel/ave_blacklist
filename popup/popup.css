@@ -26,8 +26,9 @@ body {
   line-height: 1.6;
   margin: 0;
   padding: 5px;
-  min-width: 300px;
+  width: 320px;
   display: flex;
+  flex-direction: row;
   justify-content: center;
 }
 
@@ -47,7 +48,7 @@ h1 {
 
 .operations-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-row: repeat(auto-fit, minmax(250px, 1fr));
   gap: 10px;
 }
 
