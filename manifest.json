@@ -17,10 +17,10 @@
     "default_title": "Ave Blacklist",
     "default_icon": "images/icon32.png"
   },
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
-  },
+  // "background": {
+  //   "service_worker": "background.js",
+  //   "type": "module"
+  // },
   "icons": {
     "16": "images/icon16.png",
     "32": "images/icon32.png",
