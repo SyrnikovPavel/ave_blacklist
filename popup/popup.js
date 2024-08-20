@@ -1,3 +1,8 @@
+// browser compatibility
+if (typeof browser === 'undefined') {
+    var browser = chrome;
+}
+
 function hasNumber(myString) {
     return /\d/.test(myString);
 }
@@ -13,7 +18,7 @@ function syncStore(key, objectToStore) {
 
         // since the key uses up some per-item quota, see how much is left for the value
         // also trim off 2 for quotes added by storage-time `stringify`
-        const maxLength = chrome.storage.local.QUOTA_BYTES_PER_ITEM - index.length - 2;
+        const maxLength = browser.storage.local.QUOTA_BYTES_PER_ITEM - index.length - 2;
         var valueLength = jsonstr.length;
         if (valueLength > maxLength) {
             valueLength = maxLength;
@@ -22,7 +27,7 @@ function syncStore(key, objectToStore) {
         // trim down segment so it will be small enough even when run through `JSON.stringify` again at storage time
         //max try is QUOTA_BYTES_PER_ITEM to avoid infinite loop
         var segment = jsonstr.substr(0, valueLength);
-        for (let i = 0; i < chrome.storage.local.QUOTA_BYTES_PER_ITEM; i++) {
+        for (let i = 0; i < browser.storage.local.QUOTA_BYTES_PER_ITEM; i++) {
             const jsonLength = JSON.stringify(segment).length;
             if (jsonLength > maxLength) {
                 segment = jsonstr.substr(0, --valueLength);
@@ -34,12 +39,12 @@ function syncStore(key, objectToStore) {
         storageObj[index] = segment;
         jsonstr = jsonstr.substr(valueLength);
     }
-    chrome.storage.local.set(storageObj)
+    browser.storage.local.set(storageObj)
 }
 
 function syncGet(key) {
     return new Promise((resolve) => {
-        chrome.storage.local.get(null, function(items) {
+        browser.storage.local.get(null, function(items) {
             const keyArr = new Array();
             for (let item of Object.keys(items)){
                 if (item.includes(key)){
@@ -48,7 +53,7 @@ function syncGet(key) {
                     }
                 }
             }
-            chrome.storage.local.get(keyArr, (items) => {
+            browser.storage.local.get(keyArr, (items) => {
 
                 const keys = Object.keys(items);
 
@@ -93,7 +98,7 @@ async function exportDatabase() {
     const serializedData = JSON.stringify(items, null, 2);
     const blob = new Blob([serializedData], {type: "application/json"});
     const url = URL.createObjectURL(blob);
-    chrome.downloads.download({
+    browser.downloads.download({
         url: url,
         filename: "avito_blacklist_database.json"
     });
@@ -110,7 +115,7 @@ async function exportDatabaseBlacklistUsers() {
     const blob = new Blob([serializedData], {type: "application/json"});
     const url = URL.createObjectURL(blob);
 
-    chrome.downloads.download({
+    browser.downloads.download({
         url: url,
         filename: "avito_blacklist_users_database.json"
     });
@@ -126,7 +131,7 @@ async function exportDatabaseBlacklistAds() {
     const serializedData = JSON.stringify(items, null, 2);
     const blob = new Blob([serializedData], {type: "application/json"});
     const url = URL.createObjectURL(blob);
-    chrome.downloads.download({
+    browser.downloads.download({
         url: url,
         filename: "avito_blacklist_ads_database.json"
     });
@@ -172,8 +177,8 @@ function importFromJSONFile() {
                     }
                 });
 
-                chrome.storage.local.clear(function() {
-                    console.log('Chrome storage cleared.');
+                browser.storage.local.clear(function() {
+                    console.log('browser storage cleared.');
                     syncStore('blacklist_users', newBlacklistUsers);
                     syncStore('blacklist_ads', newBlacklistAds)
                 });
@@ -240,8 +245,8 @@ function importFromJSONFileAds() {
 }
 
 function clearDatabase(){
-    chrome.storage.local.clear(function() {
-        console.log('Chrome storage cleared.');
+    browser.storage.local.clear(function() {
+        console.log('browser storage cleared.');
         syncStore('blacklist_users', []);
         syncStore('blacklist_ads', [])
     });

@@ -18,8 +18,8 @@
     "default_icon": "images/icon32.png"
   },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js", // chrome
+    "scripts": ["background.js"] // FF
   },
   "icons": {
     "16": "images/icon16.png",
