@@ -248,7 +248,7 @@ function clearDatabase(){
 }
 
 function openNewTab(){
-    chrome.tabs.create({ url: chrome.runtime.getURL("import_from_text.html") });
+    chrome.tabs.create({ url: chrome.runtime.getURL("popup/import_from_text.html") });
 }
 
 
@@ -266,7 +266,10 @@ const importText = document.getElementById("importText");
 importText.addEventListener("click", openNewTab);
 
 const clearButton = document.getElementById("clearButton");
-clearButton.addEventListener("click", clearDatabase);
+clearButton.addEventListener("click", () => {
+    confirm("База данных будет очищена, вы уверены?");
+    clearDatabase();
+  });
 
 
 

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Управление базой данных</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Управление базой данных</h1>
+
+      <div class="operations-grid">
+        <div class="operation-section">
+          <h2>Экспорт</h2>
+          <button id="exportButton">Экспорт базы данных</button>
+          <button id="exportUserButton">Экспорт пользователей</button>
+          <button id="exportAdButton">Экспорт объявлений</button>
+        </div>
+
+        <div class="operation-section">
+          <h2>Импорт</h2>
+          <input id="fileInput" type="file" accept=".json" />
+          <button id="importButton">Импорт базы данных</button>
+
+          <input id="fileInputUser" type="file" accept=".json" />
+          <button id="importButtonUser">Импорт пользователей</button>
+
+          <input id="fileInputAd" type="file" accept=".json" />
+          <button id="importButtonAd">Импорт объявлений</button>
+
+          <button id="importText">Импортировать из текста</button>
+        </div>
+
+        <div class="operation-section">
+          <h2>Очистка</h2>
+          <button id="clearButton">Очистить базу данных</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
