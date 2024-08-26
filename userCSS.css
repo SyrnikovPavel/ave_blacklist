@@ -7,14 +7,12 @@
   display: flex;
   z-index: 10000;
   right: 0;
-}
-
-.items-galleryItem-_KQnH:hover .button-container {
   top: 0;
 }
 
-.items-listItem-Gd1jN:hover .button-container {
-  bottom: 0;
+.custom-button{
+  width:30px;
+  height:30px;
 }
 
 .custom-hr {
