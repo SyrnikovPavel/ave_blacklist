@@ -403,21 +403,6 @@ function processSellerPage(userId) {
   } else {
     insertSellerUI(userId);
   }
-  sidebar.classList.add("sidebar-processed");
-}
-
-function waitForInitData(node) {
-  // ждем когда initial data загрузится в dom полностью
-  return new Promise((resolve) => {
-    const checkInterval = 50;
-
-    const intervalId = setInterval(() => {
-      if (node.textContent.includes("__mfe__")) {
-        clearInterval(intervalId);
-        resolve(node.textContent);
-      }
-    }, checkInterval);
-  });
 }
 
 async function main() {
