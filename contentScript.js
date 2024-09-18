@@ -1,4 +1,5 @@
-const offersRootSelector = "index-root-gtkvj";
+const offersRootSelectorValue = 'bx.catalog.container';
+const offersRootSelector = `[elementtiming="${offersRootSelectorValue}"]`;
 const offersSelector = '[data-marker="item"]';
 const logPrefix = "[ave]";
 
@@ -185,7 +186,7 @@ function getOfferId(offerElement) {
 }
 
 function createHiddenContainer() {
-  const offersRoot = document.getElementsByClassName(offersRootSelector)[0];
+  const offersRoot = document.querySelector(offersRootSelector);
 
   const hr = document.createElement("hr");
   hr.classList.add("custom-hr");
@@ -443,7 +444,7 @@ async function main() {
             let userId = getSellerId(initialData);
             processSellerPage(userId);
           }
-          if (node?.classList?.toString().includes(offersRootSelector)) {
+          if (node instanceof Element && node?.getAttribute('elementtiming') === offersRootSelectorValue) {
             console.log(`${logPrefix} offersRootSelector обновлен`);
             if (!catalogData) return;
             try {
