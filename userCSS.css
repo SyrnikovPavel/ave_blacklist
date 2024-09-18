@@ -7,7 +7,14 @@
   display: flex;
   z-index: 10000;
   right: 0;
+}
+
+.items-galleryItem-lV5TC:hover .button-container {
   top: 0;
+}
+
+.items-listItem-rKPls:hover .button-container {
+  bottom: 0;
 }
 
 .custom-button{
