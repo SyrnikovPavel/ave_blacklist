@@ -9,11 +9,11 @@
   right: 0;
 }
 
-.items-galleryItem-lV5TC:hover .button-container {
+[class*='items-galleryItem']:hover .button-container {
   top: 0;
 }
 
-.items-listItem-rKPls:hover .button-container {
+[class*='items-listItem']:hover .button-container {
   bottom: 0;
 }
 
