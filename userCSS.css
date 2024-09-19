@@ -9,12 +9,17 @@
   right: 0;
 }
 
-.items-galleryItem-_KQnH:hover .button-container {
+[class*='items-galleryItem']:hover .button-container {
   top: 0;
 }
 
-.items-listItem-Gd1jN:hover .button-container {
+[class*='items-listItem']:hover .button-container {
   bottom: 0;
+}
+
+.custom-button{
+  width:30px;
+  height:30px;
 }
 
 .custom-hr {
