@@ -6,6 +6,7 @@ const logPrefix = "[ave]";
 const sellerPageSidebarClass = ".Sidebar-root-h24MJ";
 const badge_bar_id = "badgebar_v2";
 
+
 // browser compatibility
 if (typeof browser === 'undefined') {
   var browser = chrome;
@@ -235,7 +236,7 @@ function insertBlockSellerButton(offerElement, offerInfo) {
     event.stopPropagation();
     if (offerInfo.userId) addUserToBlacklist(offerInfo.userId);
     buttonContainer.remove();
-    processSearchPage();
+    processSearchPage(catalogData);
   });
 }
 
@@ -279,7 +280,7 @@ function insertUnblockSellerButton(offerElement, offerInfo) {
     event.stopPropagation();
     if (offerInfo.userId) removeUserFromBlacklist(offerInfo.userId);
     buttonContainer.remove();
-    processSearchPage();
+    processSearchPage(catalogData);
   });
 }
 
@@ -414,7 +415,6 @@ async function main() {
 
   const target = document;
   let initialData;
-  let catalogData;
 
   const observer = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
