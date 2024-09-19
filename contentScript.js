@@ -1,5 +1,5 @@
-const offersRootSelector = ".index-root-KVurS";
-const offersContainerSelector = ".items-items-kAJAg";
+const offersRootSelectorValue = 'bx.catalog.container';
+const offersRootSelector = `[elementtiming="${offersRootSelectorValue}"]`;
 const offersSelector = '[data-marker="item"]';
 const logPrefix = "[ave]";
 
@@ -113,19 +113,12 @@ function getSellerId(initialData) {
   return initialData.data.ssrData.initData.result.value.data.customLink || initialData.data.ssrData.initData.result.value.data.profileUserHash;
 }
 
-function getCatalogData(initialData) {
-  const catalogKeyString = "@avito";
-  const avitoKey = Object.keys(initialData).find((key) => key.startsWith(catalogKeyString));
-
-  if (avitoKey) {
-    const catalogItems = initialData[avitoKey].data.catalog.items;
-    const extraItems = initialData[avitoKey].data.catalog.extraBlockItems;
-    let allItems = catalogItems.concat(extraItems);
-    allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
-    return allItems;
-  } else {
-    console.error(`${logPrefix} Catalog Key ${catalogKeyString} not found`);
-  }
+function getCatalogData(initCatalogData) {
+  const catalogItems = initCatalogData.data.catalog.items;
+  const extraItems = initCatalogData.data.catalog.extraBlockItems;
+  let allItems = catalogItems.concat(extraItems);
+  allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
+  return allItems;
 }
 
 function parseInitialData(initialDataContent) {
@@ -354,7 +347,7 @@ function updateOfferState(offerElement, offerInfo) {
   offerIsBlacklisted ? insertUnblockOfferButton(offerElement, offerInfo) : insertBlockOfferButton(offerElement, offerInfo);
 }
 
-function processSearchPage() {
+function processSearchPage(catalogData) {
   const offerElements = document.querySelectorAll(offersSelector);
   for (const offerElement of offerElements) {
     const offerId = getOfferId(offerElement);
@@ -410,21 +403,6 @@ function processSellerPage(userId) {
   } else {
     insertSellerUI(userId);
   }
-  sidebar.classList.add("sidebar-processed");
-}
-
-function waitForInitData(node) {
-  // ждем когда initial data загрузится в dom полностью
-  return new Promise((resolve) => {
-    const checkInterval = 50;
-
-    const intervalId = setInterval(() => {
-      if (node.textContent.includes("__mfe__")) {
-        clearInterval(intervalId);
-        resolve(node.textContent);
-      }
-    }, checkInterval);
-  });
 }
 
 async function main() {
@@ -436,6 +414,7 @@ async function main() {
 
   const target = document;
   let initialData;
+  let catalogData;
 
   const observer = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
@@ -450,38 +429,35 @@ async function main() {
             let userId = getSellerId(initialData);
             processSellerPage(userId);
           }
-          if (node?.classList?.toString().includes("index-root-KVurS")) {
+          if (node instanceof Element && node?.getAttribute('elementtiming') === offersRootSelectorValue) {
             console.log(`${logPrefix} offersRootSelector обновлен`);
-            if (!initialData) return;
+            if (!catalogData) return;
             try {
-              catalogData = getCatalogData(initialData);
               processSearchPage(catalogData);
             } catch {
               console.log(`${logPrefix} ошибка парсинга данных каталога`);
             }
           }
-          if (node?.classList?.toString().includes("styles-singlePageWrapper-eKDyt")) {
+          if (node?.classList?.toString().includes("styles-singlePageWrapper")) {
             console.log(`${logPrefix} singlePageWrapper обновлен`);
-            if (!initialData) return;
+            if (!catalogData) return;
             try {
-              catalogData = getCatalogData(initialData);
               processSearchPage(catalogData);
             } catch {
               console.log(`${logPrefix} ошибка парсинга данных каталога`);
             }
           }
-          if (node.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__")) {
-            // waitForInitData нужен, чтоб получить полные данные, если получить сразу, текст будет обрезан
-            await waitForInitData(node);
+          if (node.nodeName === "SCRIPT" && node?.textContent?.includes("searchHash") && !isUserPage) {
+            const initCatalogData = JSON.parse(node?.textContent)
+            catalogData = getCatalogData(initCatalogData);
+            console.log(`${logPrefix} catalog data avaliable`);
+            processSearchPage(catalogData);
+          }
+          if (node.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__") && isUserPage) {
             initialData = parseInitialData(node.innerHTML);
             console.log(`${logPrefix} initialData avaliable`);
-            if (isUserPage) {
-              let userId = getSellerId(initialData);
-              processSellerPage(userId);
-            } else {
-              catalogData = getCatalogData(initialData);
-              processSearchPage(catalogData);
-            }
+            let userId = getSellerId(initialData);
+            processSellerPage(userId);
           }
         });
       }
