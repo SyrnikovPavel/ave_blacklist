@@ -1,4 +1,4 @@
-const offersRootSelectorValue = 'bx.catalog.container';
+const offersRootSelectorValue = "bx.catalog.container";
 const offersRootSelector = `[elementtiming="${offersRootSelectorValue}"]`;
 const offersSelector = '[data-marker="item"]';
 const logPrefix = "[ave]";
@@ -6,9 +6,8 @@ const logPrefix = "[ave]";
 const sellerPageSidebarClass = ".Sidebar-root-h24MJ";
 const badge_bar_id = "badgebar_v2";
 
-
 // browser compatibility
-if (typeof browser === 'undefined') {
+if (typeof browser === "undefined") {
   var browser = chrome;
 }
 
@@ -236,7 +235,7 @@ function insertBlockSellerButton(offerElement, offerInfo) {
     event.stopPropagation();
     if (offerInfo.userId) addUserToBlacklist(offerInfo.userId);
     buttonContainer.remove();
-    processSearchPage(catalogData);
+    processSearchPage();
   });
 }
 
@@ -280,7 +279,7 @@ function insertUnblockSellerButton(offerElement, offerInfo) {
     event.stopPropagation();
     if (offerInfo.userId) removeUserFromBlacklist(offerInfo.userId);
     buttonContainer.remove();
-    processSearchPage(catalogData);
+    processSearchPage();
   });
 }
 
@@ -330,7 +329,7 @@ function updateOfferState(offerElement, offerInfo) {
     offerElement = offerElementClone;
     console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
   } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
-    // удаляем объявление их скрытых
+    // удаляем объявление из скрытых
     offerElement.remove();
     // находим оригинальное "скрытое" объявление
     // переназначаем offerElement, чтоб добавить к нему кнопки позже
@@ -348,7 +347,7 @@ function updateOfferState(offerElement, offerInfo) {
   offerIsBlacklisted ? insertUnblockOfferButton(offerElement, offerInfo) : insertBlockOfferButton(offerElement, offerInfo);
 }
 
-function processSearchPage(catalogData) {
+function processSearchPage() {
   const offerElements = document.querySelectorAll(offersSelector);
   for (const offerElement of offerElements) {
     const offerId = getOfferId(offerElement);
@@ -406,12 +405,26 @@ function processSellerPage(userId) {
   }
 }
 
+function waitForNodeContent(node, string) {
+  // ждем когда текст нода загрузится в dom полностью
+  // а цикле проверяем, если ли в тексте `string`, пока не найдем
+  return new Promise((resolve) => {
+    const checkInterval = 100;
+    const intervalId = setInterval(() => {
+      if (node.textContent.includes(string)) {
+        clearInterval(intervalId);
+        resolve(node.textContent);
+      }
+    }, checkInterval);
+  });
+}
+
 async function main() {
   const currentUrl = window.location.toString();
   const userPageStrings = ["www.avito.ru/user/", "sellerId", "brands"];
   const isUserPage = userPageStrings.some((str) => currentUrl.includes(str));
-  if (isUserPage) console.log(`${logPrefix} user page`);
-  else console.log(`${logPrefix} search page`);
+  if (isUserPage) console.log(`${logPrefix} страница определена: продавец`);
+  else console.log(`${logPrefix} страница определена: поиск`);
 
   const target = document;
   let initialData;
@@ -420,44 +433,45 @@ async function main() {
     mutations.forEach(function (mutation) {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach(async function (node) {
-          if (
-            node?.classList?.toString().includes("styles-module-theme-_4Zlk styles-module-theme-kvanA") &&
-            node.querySelector(".ExtendedProfile-root-i6PQx")
-          ) {
-            console.log(`${logPrefix} страница продваца обновлена`);
-            if (!initialData) return;
-            let userId = getSellerId(initialData);
-            processSellerPage(userId);
-          }
-          if (node instanceof Element && node?.getAttribute('elementtiming') === offersRootSelectorValue) {
-            console.log(`${logPrefix} offersRootSelector обновлен`);
-            if (!catalogData) return;
-            try {
-              processSearchPage(catalogData);
-            } catch {
-              console.log(`${logPrefix} ошибка парсинга данных каталога`);
+          if (isUserPage){
+            // страница продавца
+            if (
+              node?.classList?.toString().includes("styles-module-theme-_4Zlk styles-module-theme-kvanA") &&
+              node.querySelector(".ExtendedProfile-root-i6PQx")
+            ) {
+              console.log(`${logPrefix} страница продваца обновлена`);
+              if (!initialData) return;
+              let userId = getSellerId(initialData);
+              processSellerPage(userId);
             }
-          }
-          if (node?.classList?.toString().includes("styles-singlePageWrapper")) {
-            console.log(`${logPrefix} singlePageWrapper обновлен`);
-            if (!catalogData) return;
-            try {
-              processSearchPage(catalogData);
-            } catch {
-              console.log(`${logPrefix} ошибка парсинга данных каталога`);
+            if (node?.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__")) {
+              // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
+              const initialDataContent = await waitForNodeContent(node, "__mfe__");
+              initialData = parseInitialData(initialDataContent);
+              console.log(`${logPrefix} initialData найден`, initialData);
+              let userId = getSellerId(initialData);
+              processSellerPage(userId);
             }
-          }
-          if (node.nodeName === "SCRIPT" && node?.textContent?.includes("searchHash") && !isUserPage) {
-            const initCatalogData = JSON.parse(node?.textContent)
-            catalogData = getCatalogData(initCatalogData);
-            console.log(`${logPrefix} catalog data avaliable`);
-            processSearchPage(catalogData);
-          }
-          if (node.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__") && isUserPage) {
-            initialData = parseInitialData(node.innerHTML);
-            console.log(`${logPrefix} initialData avaliable`);
-            let userId = getSellerId(initialData);
-            processSellerPage(userId);
+          }else{
+            // страница поиска
+            if (node instanceof Element && node?.getAttribute("elementtiming") === offersRootSelectorValue) {
+              console.log(`${logPrefix} offersRootSelector обновлен`);
+              if (!catalogData) return;
+              processSearchPage();
+            }
+            if (node?.classList?.toString().includes("styles-singlePageWrapper")) {
+              console.log(`${logPrefix} singlePageWrapper обновлен`);
+              if (!catalogData) return;
+              processSearchPage();
+            }
+            if (node?.nodeName === "SCRIPT" && node?.textContent?.includes("searchHash")) {
+              // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
+              const initCatalogDataContent = await waitForNodeContent(node, "hashedId");
+              const initCatalogData = JSON.parse(initCatalogDataContent);
+              catalogData = getCatalogData(initCatalogData);
+              console.log(`${logPrefix} catalogData найден`, catalogData);
+              processSearchPage();
+            }
           }
         });
       }
