@@ -83,13 +83,13 @@ async function exportDatabase() {
 
     let items = {};
 
-    const blacklist_users = await syncGet("blacklist_users");
-    for (let user_id of blacklist_users){
+    const blacklistUsers = await syncGet("blacklistUsers");
+    for (let user_id of blacklistUsers){
         items[user_id] = true
     }
 
-    const blacklist_ads = await syncGet("blacklist_ads");
-    for (let ad_id of blacklist_ads){
+    const blacklistOffers = await syncGet("blacklistOffers");
+    for (let ad_id of blacklistOffers){
         items[ad_id] = true
     }
 
@@ -106,8 +106,8 @@ async function exportDatabase() {
 
 async function exportDatabaseBlacklistUsers() {
     let items = []
-    const blacklist_users = await syncGet("blacklist_users");
-    for (let user_id of blacklist_users){
+    const blacklistUsers = await syncGet("blacklistUsers");
+    for (let user_id of blacklistUsers){
         items.push(user_id.replace('_blacklist_user', ''))
     }
 
@@ -123,8 +123,8 @@ async function exportDatabaseBlacklistUsers() {
 
 async function exportDatabaseBlacklistAds() {
     let items = []
-    const blacklist_ads = await syncGet("blacklist_ads");
-    for (let ad_id of blacklist_ads){
+    const blacklistOffers = await syncGet("blacklistOffers");
+    for (let ad_id of blacklistOffers){
         items.push(ad_id.replace('_blacklist_ad', ''))
     }
 
@@ -179,8 +179,8 @@ function importFromJSONFile() {
 
                 browser.storage.local.clear(function() {
                     console.log('browser storage cleared.');
-                    syncStore('blacklist_users', newBlacklistUsers);
-                    syncStore('blacklist_ads', newBlacklistAds)
+                    syncStore('blacklistUsers', newBlacklistUsers);
+                    syncStore('blacklistOffers', blacklistOffers)
                 });
             } catch (error) {
                 console.error('Failed to parse JSON:', error);
@@ -204,11 +204,11 @@ function importFromJSONFileUsers() {
             try {
                 const newUserIDs = JSON.parse(json);
 
-                let blacklist_users = [];
+                let blacklistUsers = [];
                 for (const userID of newUserIDs) {
-                    blacklist_users.push(userID + "_blacklist_user");
+                    blacklistUsers.push(userID + "_blacklist_user");
                 }
-                syncStore('blacklist_users', blacklist_users);
+                syncStore('blacklistUsers', blacklistUsers);
 
             } catch (error) {
                 console.error('Failed to parse JSON:', error);
@@ -231,11 +231,11 @@ function importFromJSONFileAds() {
             const json = readerEvent.target.result;
             try {
                 const newAdIDs = JSON.parse(json);
-                let blacklist_ads = [];
+                let blacklistOffers = [];
                 for (const adID of newAdIDs) {
-                    blacklist_ads.push(adID + "_blacklist_ad");
+                    blacklistOffers.push(adID + "_blacklist_ad");
                 }
-                syncStore('blacklist_ads', blacklist_ads);
+                syncStore('blacklistOffers', blacklistOffers);
 
             } catch (error) {
                 console.error('Failed to parse JSON:', error);
@@ -247,8 +247,8 @@ function importFromJSONFileAds() {
 function clearDatabase(){
     browser.storage.local.clear(function() {
         console.log('browser storage cleared.');
-        syncStore('blacklist_users', []);
-        syncStore('blacklist_ads', [])
+        syncStore('blacklistUsers', []);
+        syncStore('blacklistOffers', [])
     });
 }
 
