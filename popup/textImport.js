@@ -87,11 +87,11 @@ function importFromTextUsers() {
         }
     }
 
-    let blacklist_users = [];
+    let blacklistUsers = [];
     for (const userID of newUserIDs) {
-        blacklist_users.push(userID + "_blacklist_user");
+        blacklistUsers.push(userID + "_blacklist_user");
     }
-    syncStore('blacklist_users', blacklist_users);
+    syncStore('blacklistUsers', blacklistUsers);
 
 }
 
@@ -111,11 +111,11 @@ function importFromTextAds() {
         }
     }
 
-    let blacklist_ads = [];
+    let blacklistOffers = [];
     for (const adID of newAdIDs) {
-        blacklist_ads.push(adID + "blacklist_ad");
+        blacklistOffers.push(adID + "blacklist_ad");
     }
-    syncStore('blacklist_ads', blacklist_ads);
+    syncStore('blacklistOffers', blacklistOffers);
 
 }
 
