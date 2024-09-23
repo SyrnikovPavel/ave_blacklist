@@ -161,25 +161,25 @@ function importFromJSONFile() {
             try {
                 const data = JSON.parse(json);
 
-                let newBlacklistUsers = [];
-                let newBlacklistAds = [];
+                let blacklistUsers = [];
+                let blacklistOffers = [];
 
                 Object.keys(data).forEach(function(search_id) {
                     if (search_id.includes('_blacklist_user')){
-                        if (!newBlacklistUsers.includes(search_id)){
-                            newBlacklistUsers.push(search_id)
+                        if (!blacklistUsers.includes(search_id)){
+                            blacklistUsers.push(search_id)
                         }
                     }
                     if (search_id.includes('_blacklist_ad')){
-                        if (!newBlacklistAds.includes(search_id)){
-                            newBlacklistAds.push(search_id)
+                        if (!blacklistOffers.includes(search_id)){
+                            blacklistOffers.push(search_id)
                         }
                     }
                 });
 
                 browser.storage.local.clear(function() {
                     console.log('browser storage cleared.');
-                    syncStore('blacklistUsers', newBlacklistUsers);
+                    syncStore('blacklistUsers', blacklistUsers);
                     syncStore('blacklistOffers', blacklistOffers)
                 });
             } catch (error) {
