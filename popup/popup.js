@@ -162,7 +162,7 @@ function importFromJSONFile() {
                 const data = JSON.parse(json);
 
                 let newBlacklistUsers = [];
-                let newBlacklistAds = [];
+                let newBlacklistOffers = [];
 
                 Object.keys(data).forEach(function(search_id) {
                     if (search_id.includes('_blacklist_user')){
@@ -171,8 +171,8 @@ function importFromJSONFile() {
                         }
                     }
                     if (search_id.includes('_blacklist_ad')){
-                        if (!newBlacklistAds.includes(search_id)){
-                            newBlacklistAds.push(search_id)
+                        if (!newBlacklistOffers.includes(search_id)){
+                            newBlacklistOffers.push(search_id)
                         }
                     }
                 });
@@ -180,7 +180,7 @@ function importFromJSONFile() {
                 browser.storage.local.clear(function() {
                     console.log('browser storage cleared.');
                     syncStore('blacklistUsers', newBlacklistUsers);
-                    syncStore('blacklistOffers', blacklistOffers)
+                    syncStore('blacklistOffers', newBlacklistOffers)
                 });
             } catch (error) {
                 console.error('Failed to parse JSON:', error);
