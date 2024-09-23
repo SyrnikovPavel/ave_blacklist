@@ -78,46 +78,45 @@ function importFromTextUsers() {
 
     let text = document.getElementById("users").value.replace(/{/g, '').replace(/}/g, '').replace(/_blacklist_ad/g, '').replace(/_blacklist_user/g, '').replace(/true/g, '').replace(/:/g, '').replace(/\[/g, '').replace(/]/g, '').replace(/"/g, '').replace(/'/g, "").replace(/\n/g, ",").replace(/ /g, "");
 
-    let newUserIDs = []
+    let newUserIds = []
     for (let id of text.split(',')) {
         if (id !== '') {
             if (id.length >= 30){
-                newUserIDs.push(id)
+                newUserIds.push(id)
             }
         }
     }
 
     let blacklistUsers = [];
-    for (const userID of newUserIDs) {
-        blacklistUsers.push(userID + "_blacklist_user");
+    for (const userId of newUserIds) {
+        blacklistUsers.push(userId + "_blacklist_user");
     }
     syncStore('blacklistUsers', blacklistUsers);
 
 }
 
-const importUser = document.getElementById("importUser");
-importUser.addEventListener("click", importFromTextUsers);
+const importUsers = document.getElementById("importUsers");
+importUsers.addEventListener("click", importFromTextUsers);
 
-function importFromTextAds() {
+function importFromTextOffers() {
 
-    let text = document.getElementById("ads").value.replace(/{/g, '').replace(/}/g, '').replace(/_blacklist_ad/g, '').replace(/_blacklist_user/g, '').replace(/true/g, '').replace(/:/g, '').replace(/\[/g, '').replace(/]/g, '').replace(/"/g, '').replace(/'/g, "").replace(/\n/g, ",").replace(/ /g, "");
+    let text = document.getElementById("offers").value.replace(/{/g, '').replace(/}/g, '').replace(/_blacklist_ad/g, '').replace(/_blacklist_user/g, '').replace(/true/g, '').replace(/:/g, '').replace(/\[/g, '').replace(/]/g, '').replace(/"/g, '').replace(/'/g, "").replace(/\n/g, ",").replace(/ /g, "");
 
-    let newAdIDs = []
+    let newOfferIds = []
     for (let id of text.split(',')) {
         if (id !== '') {
             if (id.length < 30) {
-                newAdIDs.push(id)
+                newOfferIds.push(id)
             }
         }
     }
 
     let blacklistOffers = [];
-    for (const adID of newAdIDs) {
-        blacklistOffers.push(adID + "blacklist_ad");
+    for (const offerId of newOfferIds) {
+        blacklistOffers.push(offerId + "blacklist_ad");
     }
     syncStore('blacklistOffers', blacklistOffers);
 
 }
 
-const importAd = document.getElementById("importAd");
-importAd.addEventListener("click", importFromTextAds);
+document.getElementById("importOffers").addEventListener("click", importFromTextOffers);

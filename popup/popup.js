@@ -84,13 +84,13 @@ async function exportDatabase() {
     let items = {};
 
     const blacklistUsers = await syncGet("blacklistUsers");
-    for (let user_id of blacklistUsers){
-        items[user_id] = true
+    for (let userId of blacklistUsers){
+        items[userId] = true
     }
 
     const blacklistOffers = await syncGet("blacklistOffers");
-    for (let ad_id of blacklistOffers){
-        items[ad_id] = true
+    for (let offerId of blacklistOffers){
+        items[offerId] = true
     }
 
     console.log(items);
@@ -121,11 +121,11 @@ async function exportDatabaseBlacklistUsers() {
     });
 }
 
-async function exportDatabaseBlacklistAds() {
+async function exportDatabaseBlacklistOffers() {
     let items = []
     const blacklistOffers = await syncGet("blacklistOffers");
-    for (let ad_id of blacklistOffers){
-        items.push(ad_id.replace('_blacklist_ad', ''))
+    for (let offerId of blacklistOffers){
+        items.push(offerId.replace('_blacklist_ad', ''))
     }
 
     const serializedData = JSON.stringify(items, null, 2);
@@ -133,18 +133,18 @@ async function exportDatabaseBlacklistAds() {
     const url = URL.createObjectURL(blob);
     browser.downloads.download({
         url: url,
-        filename: "avito_blacklist_ads_database.json"
+        filename: "avito_blacklist_offers_database.json"
     });
 }
 
 const exportButton = document.getElementById("exportButton");
 exportButton.addEventListener("click", exportDatabase);
 
-const exportUserButton = document.getElementById("exportUserButton");
-exportUserButton.addEventListener("click", exportDatabaseBlacklistUsers);
+const exportUsersButton = document.getElementById("exportUsersButton");
+exportUsersButton.addEventListener("click", exportDatabaseBlacklistUsers);
 
-const exportAdButton = document.getElementById("exportAdButton");
-exportAdButton.addEventListener("click", exportDatabaseBlacklistAds);
+const exportOffersButton = document.getElementById("exportOffersButton");
+exportOffersButton.addEventListener("click", exportDatabaseBlacklistOffers);
 
 function importFromJSONFile() {
     const fileInput = document.getElementById('fileInput');
@@ -202,11 +202,11 @@ function importFromJSONFileUsers() {
         reader.onload = function(readerEvent) {
             const json = readerEvent.target.result;
             try {
-                const newUserIDs = JSON.parse(json);
+                const newUserIds = JSON.parse(json);
 
                 let blacklistUsers = [];
-                for (const userID of newUserIDs) {
-                    blacklistUsers.push(userID + "_blacklist_user");
+                for (const userId of newUserIds) {
+                    blacklistUsers.push(userId + "_blacklist_user");
                 }
                 syncStore('blacklistUsers', blacklistUsers);
 
@@ -217,7 +217,7 @@ function importFromJSONFileUsers() {
     });
 }
 
-function importFromJSONFileAds() {
+function importFromJSONFileOffers() {
     const fileInput = document.getElementById('fileInput');
     fileInput.click();
 
@@ -230,10 +230,10 @@ function importFromJSONFileAds() {
         reader.onload = function(readerEvent) {
             const json = readerEvent.target.result;
             try {
-                const newAdIDs = JSON.parse(json);
+                const newOfferIds = JSON.parse(json);
                 let blacklistOffers = [];
-                for (const adID of newAdIDs) {
-                    blacklistOffers.push(adID + "_blacklist_ad");
+                for (const offerId of newOfferIds) {
+                    blacklistOffers.push(offerId + "_blacklist_ad");
                 }
                 syncStore('blacklistOffers', blacklistOffers);
 
@@ -261,11 +261,11 @@ function openNewTab(){
 const importButton = document.getElementById("importButton");
 importButton.addEventListener("click", importFromJSONFile);
 
-const importButtonUser = document.getElementById("importButtonUser");
-importButtonUser.addEventListener("click", importFromJSONFileUsers);
+const importButtonUsers = document.getElementById("importButtonUsers");
+importButtonUsers.addEventListener("click", importFromJSONFileUsers);
 
-const importButtonAd = document.getElementById("importButtonAd");
-importButtonAd.addEventListener("click", importFromJSONFileAds);
+const importButtonOffers = document.getElementById("importButtonOffers");
+importButtonOffers.addEventListener("click", importFromJSONFileOffers);
 
 const importText = document.getElementById("importText");
 importText.addEventListener("click", openNewTab);
@@ -275,6 +275,3 @@ clearButton.addEventListener("click", () => {
     confirm("База данных будет очищена, вы уверены?");
     clearDatabase();
   });
-
-
-
