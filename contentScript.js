@@ -151,7 +151,7 @@ function addUserToBlacklist(userId) {
   console.log(`${logPrefix} продавец ${userId} добавлен в блеклист`);
 }
 
-function addADToBlacklist(offerId) {
+function addOfferToBlacklist(offerId) {
   let searchId = offerId + "_blacklist_ad";
   let inBlacklist = blacklistOffers.includes(searchId);
   if (!inBlacklist) {
@@ -171,11 +171,11 @@ function removeUserFromBlacklist(userId) {
   console.log(`${logPrefix} продавец ${userId} удален из блеклиста`);
 }
 
-function removeADFromBlacklist(offerId) {
+function removeOfferFromBlacklist(offerId) {
   let searchId = offerId + "_blacklist_ad";
   let inBlacklist = blacklistOffers.includes(searchId);
   if (inBlacklist) {
-    blacklistOffers = blacklistOffers.filter((adId) => adId !== searchId);
+    blacklistOffers = blacklistOffers.filter((offerId) => offerId !== searchId);
     syncStore("blacklistOffers", blacklistOffers);
   }
   console.log(`${logPrefix} объявление ${offerId} удалено из блеклиста`);
@@ -255,7 +255,7 @@ function insertBlockOfferButton(offerElement, offerInfo) {
   buttonContainer.appendChild(blockButton);
   blockButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    addADToBlacklist(offerInfo.offerId);
+    addOfferToBlacklist(offerInfo.offerId);
     buttonContainer.remove();
     updateOfferState(offerElement, offerInfo);
   });
@@ -299,7 +299,7 @@ function insertUnblockOfferButton(offerElement, offerInfo) {
   buttonContainer.appendChild(blockButton);
   blockButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    removeADFromBlacklist(offerInfo.offerId);
+    removeOfferFromBlacklist(offerInfo.offerId);
     buttonContainer.remove();
     updateOfferState(offerElement, offerInfo);
   });
