@@ -136,7 +136,7 @@ function parseInitialData(initialDataContent) {
     const initialData = JSON.parse(jsonString);
     return initialData;
   } catch (error) {
-    console.error(`${logPrefix} Error parsing script:`, error);
+    console.error(`${logPrefix} Ошибка парсинга __initialData__:`, error);
   }
   return null;
 }
@@ -407,7 +407,7 @@ function processSellerPage(userId) {
 
 function waitForNodeContent(node, string) {
   // ждем когда текст нода загрузится в dom полностью
-  // а цикле проверяем, если ли в тексте `string`, пока не найдем
+  // в цикле проверяем, если ли в тексте `string`, пока не найдем
   return new Promise((resolve) => {
     const checkInterval = 100;
     const intervalId = setInterval(() => {
@@ -417,6 +417,21 @@ function waitForNodeContent(node, string) {
       }
     }, checkInterval);
   });
+}
+
+function getCatalogDataFromInit(initialData) {
+  const catalogKeyString = "@avito";
+  const avitoKey = Object.keys(initialData).find((key) => key.startsWith(catalogKeyString));
+
+  if (avitoKey) {
+    const catalogItems = initialData[avitoKey].data.catalog.items;
+    const extraItems = initialData[avitoKey].data.catalog.extraBlockItems;
+    let allItems = catalogItems.concat(extraItems);
+    allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
+    return allItems;
+  } else {
+    console.error(`${logPrefix} ключ ${catalogKeyString} не найден`);
+  }
 }
 
 async function main() {
@@ -433,7 +448,7 @@ async function main() {
     mutations.forEach(function (mutation) {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach(async function (node) {
-          if (isUserPage){
+          if (isUserPage) {
             // страница продавца
             if (
               node?.classList?.toString().includes("styles-module-theme-_4Zlk styles-module-theme-kvanA") &&
@@ -452,7 +467,7 @@ async function main() {
               let userId = getSellerId(initialData);
               processSellerPage(userId);
             }
-          }else{
+          } else {
             // страница поиска
             if (node instanceof Element && node?.getAttribute("elementtiming") === offersRootSelectorValue) {
               console.log(`${logPrefix} offersRootSelector обновлен`);
@@ -467,8 +482,14 @@ async function main() {
             if (node?.nodeName === "SCRIPT" && node?.textContent?.includes("searchHash")) {
               // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
               const initCatalogDataContent = await waitForNodeContent(node, "hashedId");
-              const initCatalogData = JSON.parse(initCatalogDataContent);
-              catalogData = getCatalogData(initCatalogData);
+              if (initCatalogDataContent.startsWith("window.__initialData__")) {
+                initialData = parseInitialData(initCatalogDataContent);
+                catalogData = getCatalogDataFromInit(initialData);
+              } else {
+                const initCatalogData = JSON.parse(initCatalogDataContent);
+                catalogData = getCatalogData(initCatalogData);
+              }
+
               console.log(`${logPrefix} catalogData найден`, catalogData);
               processSearchPage();
             }
