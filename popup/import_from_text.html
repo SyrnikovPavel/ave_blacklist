@@ -1,37 +1,36 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Импорт пользователей/объявленй</title>
     <style>
-        #users{
-            width: 400px;
-            height: 200px;
-        }
-        #offers{
-            width: 400px;
-            height: 200px;
-        }
+      #users {
+        width: 400px;
+        height: 200px;
+      }
+      #offers {
+        width: 400px;
+        height: 200px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <form>
-        <label for="users">Введите Id пользователей через запятую (или 1 Id в одну строчку) или скопируйте их из файла</label>
-        <br/>
-        <textarea id="users"></textarea>
-        <br/>
-        <button id="importUsers">Импорт пользователей</button>
+      <label for="users">Введите Id пользователей через запятую (или 1 Id в одну строчку) или скопируйте их из файла</label>
+      <br />
+      <textarea id="users"></textarea>
+      <br />
+      <button id="importUsers">Импорт пользователей</button>
     </form>
 
     <form>
-        <label for="offers">Введите Id объявлений через запятую (или 1 Id в одну строчку) или скопируйте их из файла</label>
-        <br/>
-        <textarea id="offers"></textarea>
-        <br/>
-        <button id="importOffers">Импорт объявлений</button>
+      <label for="offers">Введите Id объявлений через запятую (или 1 Id в одну строчку) или скопируйте их из файла</label>
+      <br />
+      <textarea id="offers"></textarea>
+      <br />
+      <button id="importOffers">Импорт объявлений</button>
     </form>
-
 
     <script src="textImport.js"></script>
-</body>
+  </body>
 </html>
