@@ -479,9 +479,9 @@ async function main() {
               if (!catalogData) return;
               processSearchPage();
             }
-            if (node?.nodeName === "SCRIPT" && node?.textContent?.includes("searchHash")) {
+            if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && !node?.textContent?.startsWith("window[")) {
               // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
-              const initCatalogDataContent = await waitForNodeContent(node, "hashedId");
+              const initCatalogDataContent = await waitForNodeContent(node, "searchCore");
               if (initCatalogDataContent.startsWith("window.__initialData__")) {
                 initialData = parseInitialData(initCatalogDataContent);
                 catalogData = getCatalogDataFromInit(initialData);
