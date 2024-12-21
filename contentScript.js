@@ -420,18 +420,17 @@ function waitForNodeContent(node, string) {
 }
 
 function getCatalogDataFromInit(initialData) {
-  const catalogKeyString = "@avito";
-  const avitoKey = Object.keys(initialData).find((key) => key.startsWith(catalogKeyString));
+  const catalogItems = initialData.data.catalog.items;
+  const extraItems = initialData.data.catalog.extraBlockItems;
+  let allItems = catalogItems.concat(extraItems);
+  allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
+  return allItems;
+}
 
-  if (avitoKey) {
-    const catalogItems = initialData[avitoKey].data.catalog.items;
-    const extraItems = initialData[avitoKey].data.catalog.extraBlockItems;
-    let allItems = catalogItems.concat(extraItems);
-    allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
-    return allItems;
-  } else {
-    console.error(`${logPrefix} ключ ${catalogKeyString} не найден`);
-  }
+function decodeHtmlEntities(str) {
+  const txt = document.createElement("textarea");
+  txt.innerHTML = str;
+  return txt.value;
 }
 
 async function main() {
@@ -481,15 +480,10 @@ async function main() {
             }
             if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && !node?.textContent?.startsWith("window[")) {
               // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
-              const initCatalogDataContent = await waitForNodeContent(node, "searchCore");
-              if (initCatalogDataContent.startsWith("window.__initialData__")) {
-                initialData = parseInitialData(initCatalogDataContent);
-                catalogData = getCatalogDataFromInit(initialData);
-              } else {
-                const initCatalogData = JSON.parse(initCatalogDataContent);
-                catalogData = getCatalogData(initCatalogData);
-              }
-
+              const initCatalogDataContent = await waitForNodeContent(node, "isAuthenticated");
+              const decodedJson = decodeHtmlEntities(initCatalogDataContent);
+              const initialData = JSON.parse(decodedJson);
+              catalogData = getCatalogDataFromInit(initialData);
               console.log(`${logPrefix} catalogData найден`, catalogData);
               processSearchPage();
             }
