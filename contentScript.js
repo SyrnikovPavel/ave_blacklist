@@ -357,43 +357,55 @@ function processSearchPage() {
   }
 }
 
+function checkButton() {
+  const texts = ["Скрыть пользователя", "Показать пользователя"];
+  const button = Array.from(document.querySelectorAll('button')).find(btn =>
+      texts.includes(btn.textContent.trim())
+  );
+  return button !== undefined;
+}
+
 function insertBlockedSellerUI(userId) {
-  const sidebar = document.querySelector(sellerPageSidebarSelector);
-  const unblockButtonHtml =
-    '<button type="button" class="sellerPageControlButton removeSellerFromBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Показать пользователя</span></span></button>';
-  const badgeHtml =
-    '<div class="ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge" style="--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181" data-marker="badge-102">❌ Пользователь в ЧС</div><div class="ProfileBadge-content-o2hDn"><div class="ProfileBadge-title-_Z4By" data-marker="badge-title-102"></div><div class="ProfileBadge-description-_lbMb" data-marker="badge-description-102"></div></div>';
-  const firstBadge = sidebar.querySelector(`[class^="ProfileBadge-"]`);
-  const badge_bar = firstBadge.parentElement;
-  badge_bar.insertAdjacentHTML("beforeend", badgeHtml);
-  sidebar.insertAdjacentHTML("beforeend", unblockButtonHtml);
+  if (!checkButton()){
+    const sidebar = document.querySelector(sellerPageSidebarSelector);
+    const unblockButtonHtml =
+        '<button type="button" class="sellerPageControlButton removeSellerFromBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Показать пользователя</span></span></button>';
+    const badgeHtml =
+        '<div class="ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge" style="--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181" data-marker="badge-102">❌ Пользователь в ЧС</div><div class="ProfileBadge-content-o2hDn"><div class="ProfileBadge-title-_Z4By" data-marker="badge-title-102"></div><div class="ProfileBadge-description-_lbMb" data-marker="badge-description-102"></div></div>';
+    const firstBadge = sidebar.querySelector(`[class^="ProfileBadge-"]`);
+    const badge_bar = firstBadge.parentElement;
+    badge_bar.insertAdjacentHTML("beforeend", badgeHtml);
+    sidebar.insertAdjacentHTML("beforeend", unblockButtonHtml);
 
-  const actionButton = sidebar.querySelector(".removeSellerFromBlacklist");
+    const actionButton = sidebar.querySelector(".removeSellerFromBlacklist");
 
-  // убрать пользователя из ЧС
-  actionButton.addEventListener("click", () => {
-    removeUserFromBlacklist(userId);
-    sidebar.querySelector(".bad_badge").remove();
-    actionButton.remove();
-    insertSellerUI(userId);
-  });
+    // убрать пользователя из ЧС
+    actionButton.addEventListener("click", () => {
+      removeUserFromBlacklist(userId);
+      sidebar.querySelector(".bad_badge").remove();
+      actionButton.remove();
+      insertSellerUI(userId);
+    });
+  }
 }
 
 function insertSellerUI(userId) {
-  const sidebar = document.querySelector(sellerPageSidebarSelector);
-  const blockButtonHtml =
-    '<button type="button" class="sellerPageControlButton addSellerToBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Скрыть пользователя</span></span></button>';
+  if (!checkButton()) {
+    const sidebar = document.querySelector(sellerPageSidebarSelector);
+    const blockButtonHtml =
+        '<button type="button" class="sellerPageControlButton addSellerToBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Скрыть пользователя</span></span></button>';
 
-  sidebar.insertAdjacentHTML("beforeend", blockButtonHtml);
+    sidebar.insertAdjacentHTML("beforeend", blockButtonHtml);
 
-  const actionButton = sidebar.querySelector(".addSellerToBlacklist");
+    const actionButton = sidebar.querySelector(".addSellerToBlacklist");
 
-  // добавить пользователя в ЧС
-  actionButton.addEventListener("click", () => {
-    addUserToBlacklist(userId);
-    actionButton.remove();
-    insertBlockedSellerUI(userId);
-  });
+    // добавить пользователя в ЧС
+    actionButton.addEventListener("click", () => {
+      addUserToBlacklist(userId);
+      actionButton.remove();
+      insertBlockedSellerUI(userId);
+    });
+  }
 }
 
 function processSellerPage(userId) {
