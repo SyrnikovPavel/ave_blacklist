@@ -314,8 +314,8 @@ function insertButtonContainer(offerElement) {
 function updateOfferState(offerElement, offerInfo) {
   const hiddenContainer = createHiddenContainer();
   const offerIsHidden = hiddenContainer.contains(offerElement);
-  const userIsBlacklisted = offerInfo.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
-  const offerIsBlacklisted = blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
+  const userIsBlacklisted = offerInfo?.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
+  const offerIsBlacklisted = offerInfo?.offerId && blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
 
   if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
     // клонируем оригинальное объявление
@@ -351,9 +351,16 @@ function processSearchPage() {
   for (const offerElement of offerElements) {
     const offerId = getOfferId(offerElement);
     const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
-    const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-    const userId = sellerUrl?.split("/")[2]?.split("?")[0];
-    updateOfferState(offerElement, { offerId, userId });
+    let userId = null;
+    try {
+      const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
+      userId = sellerUrl?.split("/")[2]?.split("?")[0];
+    } catch (error) {
+      console.error("Error extracting userId:", error);
+      userId = undefined;
+    } finally {
+      updateOfferState(offerElement, { offerId, userId });
+    }
   }
 }
 
