@@ -1,6 +1,7 @@
 ## Расширение Ave Blacklist
 
 <a href='https://chromewebstore.google.com/detail/ave-blacklist/jhobdoodiicgomhcmcdapbdehndbhkfj'><img alt='Установить для Chrome' src='assets/chrome-badge.png'/></a>
+<a href='https://addons.mozilla.org/ru/firefox/addon/ave-blacklist'><img alt='Установить для Firefox' src='assets/firefox-badge.png'/></a>
 
 Расширение создано для того, чтобы скрывать объявления нежелательных продавцов на Авито (Avito) - спамеров, агентств продаж и так далее.
 
