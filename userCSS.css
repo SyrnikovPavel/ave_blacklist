@@ -17,9 +17,11 @@
   bottom: 0;
 }
 
-.custom-button{
-  width:30px;
-  height:30px;
+.custom-button {
+  width: 30px;
+  height: 30px;
+  stroke: #fff;
+  filter: drop-shadow(2px 2px 4px rgb(0, 0, 0)) drop-shadow(0px 0px 20px rgba(0, 0, 0, 1));
 }
 
 .custom-hr {
@@ -37,19 +39,18 @@
   flex-wrap: wrap;
 }
 
-.custom-button:hover {
-  background-color: white;
-  border-radius: 3px;
-}
-
 .custom-button.block:hover {
-  stroke: red!important;
+  stroke: rgb(243, 50, 50) !important;
 }
 
 .custom-button.unblock:hover {
-  stroke: green!important;
+  stroke: rgb(3, 245, 3) !important;
 }
 
-.sellerPageControlButton{
-    margin-top: 8px;
+.sellerPageControlButton {
+  margin-top: 8px;
+}
+
+.index-root-gtkvj {
+  min-height: 0px !important;
 }
