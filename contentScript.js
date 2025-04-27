@@ -492,7 +492,7 @@ async function createPaginationControls() {
 
   const status = document.createElement("div");
   status.className = "avito-auto-pagination-status";
-  status.textContent = isPaginationEnabled ? "Автопагинация включена" : "Автопагинация отключена";
+  status.textContent = isPaginationEnabled ? "Авто пагинация включена" : "Авто пагинация отключена";
   status.style.textAlign = "center";
   status.style.fontWeight = "500";
 
@@ -521,28 +521,31 @@ async function createPaginationControls() {
     button.style.background = "#3498db";
   };
 
+  button.onclick = () => {
+    isPaginationEnabled = !isPaginationEnabled;
+    button.childNodes[0].textContent = isPaginationEnabled ? "Отключить" : "Включить";
+    status.textContent = isPaginationEnabled ? "Авто пагинация включена" : "Авто пагинация отключена";
+    if (isPaginationEnabled) checkPaginationVisibility();
+  };
+
+  controls.appendChild(status);
+  controls.appendChild(button);
+  document.body.appendChild(controls);
+
+  // Create pagination spinner (but don't append it yet)
   const spinner = document.createElement("div");
   spinner.className = "avito-auto-pagination-loader-spinner";
   spinner.style.display = "none";
+  spinner.style.position = "absolute";
+  spinner.style.right = "10px";
+  spinner.style.top = "50%";
+  spinner.style.transform = "translateY(-50%)";
   spinner.style.border = "3px solid rgba(255, 255, 255, 0.3)";
   spinner.style.borderTop = "3px solid white";
   spinner.style.borderRadius = "50%";
   spinner.style.width = "16px";
   spinner.style.height = "16px";
   spinner.style.animation = "spin 0.8s linear infinite";
-
-  button.onclick = () => {
-    isPaginationEnabled = !isPaginationEnabled;
-    button.childNodes[0].textContent = isPaginationEnabled ? "Отключить" : "Включить";
-    status.textContent = isPaginationEnabled ? "Автопагинация включена" : "Автопагинация отключена";
-    if (isPaginationEnabled) checkPaginationVisibility();
-  };
-
-  button.appendChild(spinner);
-
-  controls.appendChild(status);
-  controls.appendChild(button);
-  document.body.appendChild(controls);
 
   // Add keyframes for spinner if not already added
   if (!document.getElementById("avito-spinner-style")) {
@@ -682,9 +685,16 @@ async function fetchNextPage() {
 
   isLoading = true;
   paginationControls.button.disabled = true;
-  paginationControls.spinner.style.display = "block";
   paginationControls.status.textContent = "Загрузка страницы " + (getCurrentPage() + 1);
   console.log(`${logPrefix} Загрузка страницы  ${getCurrentPage() + 1}`);
+
+  // Append spinner to pagination
+  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
+  if (paginator) {
+    paginator.style.position = "relative";
+    paginationControls.spinner.style.display = "block";
+    paginator.appendChild(paginationControls.spinner);
+  }
 
   try {
     const response = await fetch(nextPageUrl);
@@ -760,7 +770,6 @@ async function fetchNextPage() {
     // Update pagination
     const newPaginator = doc.querySelector(".js-pages.pagination-pagination-JPulP");
     if (newPaginator) {
-      const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
       if (paginator) {
         paginator.innerHTML = newPaginator.innerHTML;
         console.log(`${logPrefix} Updated pagination controls`);
@@ -775,11 +784,16 @@ async function fetchNextPage() {
   } finally {
     isLoading = false;
     paginationControls.button.disabled = false;
+
+    // Remove spinner from pagination
     paginationControls.spinner.style.display = "none";
+    if (paginationControls.spinner.parentNode) {
+      paginationControls.spinner.parentNode.removeChild(paginationControls.spinner);
+    }
 
     // Wait a bit before allowing the next load
     setTimeout(() => {
-      paginationControls.status.textContent = isPaginationEnabled ? "Автоматическая пагинация включена" : "Автоматическая пагинация отключена";
+      paginationControls.status.textContent = isPaginationEnabled ? "Авто пагинация включена" : "Авто пагинация отключена";
     }, 2000);
   }
 }
