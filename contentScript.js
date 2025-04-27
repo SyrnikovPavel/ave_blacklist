@@ -108,6 +108,314 @@ function migrateStorage() {
   });
 }
 
+// ==================== AUTO-PAGINATION FUNCTIONALITY ====================
+function createSpinner() {
+  const spinner = document.createElement("div");
+  spinner.className = "avito-auto-pagination-loader-spinner";
+  spinner.style.display = "none";
+  spinner.style.position = "absolute";
+  spinner.style.right = "10px";
+  spinner.style.top = "50%";
+  spinner.style.transform = "translateY(-50%)";
+  spinner.style.border = "3px solid rgba(255, 255, 255, 0.3)";
+  spinner.style.borderTop = "3px solid white";
+  spinner.style.borderRadius = "50%";
+  spinner.style.width = "16px";
+  spinner.style.height = "16px";
+  spinner.style.animation = "spin 0.8s linear infinite";
+
+  // Add keyframes for spinner if not already added
+  if (!document.getElementById("avito-spinner-style")) {
+    const style = document.createElement("style");
+    style.id = "avito-spinner-style";
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  return spinner;
+}
+
+function getMainOffersContainer() {
+  const containers = document.querySelectorAll(".items-items-Iy89l");
+  return containers.length > 0 ? containers[0] : null;
+}
+
+function getOtherCitiesContainer() {
+  const containers = document.querySelectorAll(".items-items-Iy89l");
+  return containers.length > 1 ? containers[1] : null;
+}
+
+function isPaginatorVisible() {
+  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
+  if (!paginator) {
+    console.log(`${logPrefix} Paginator not found`);
+    return false;
+  }
+
+  const rect = paginator.getBoundingClientRect();
+  const isVisible = rect.top <= (window.innerHeight || document.documentElement.clientHeight) && rect.bottom >= 0;
+
+  // console.log(`${logPrefix} Paginator visibility check: ${isVisible}`);
+  return isVisible;
+}
+
+// Get current page number
+function getCurrentPage() {
+  const currentPageElement = document.querySelector(".styles-module-item_current-u7t1s");
+  if (currentPageElement) {
+    const pageText = currentPageElement.querySelector(".styles-module-text-LjJRZ")?.textContent;
+    const page = parseInt(pageText, 10) || 1;
+    console.log(`${logPrefix} Current page: ${page}`);
+    return page;
+  }
+  console.log(`${logPrefix} Current page not found, defaulting to 1`);
+  return 1;
+}
+
+function getNextPageUrl() {
+  const currentPage = getCurrentPage();
+  const nextPageElement = document.querySelector(`[data-value="${currentPage + 1}"]`);
+  const url = nextPageElement ? nextPageElement.href : null;
+  console.log(`${logPrefix} Next page URL: ${url}`);
+  return url;
+}
+
+function removeBrokenElements(item) {
+  item.querySelectorAll('[class*="photo-slider-extra"]').forEach((container) => {
+    container.remove();
+  });
+
+  item.querySelectorAll('[class*="iva-item-actions-"]').forEach((container) => {
+    container.remove();
+  });
+}
+
+// Fix missing images in an item
+function fixItemImages(item) {
+  const imageContainers = item.querySelectorAll('[class*="photo-slider-dotsCounter"]');
+  imageContainers.forEach((container) => {
+    const imageMarker = container.getAttribute("data-marker");
+    if (!imageMarker || !imageMarker.startsWith("slider-image/image-")) return;
+
+    const imageUrl = imageMarker.replace("slider-image/image-", "");
+    const imageSpan = container.querySelector(".photo-slider-image-xjG6U");
+
+    // If we have a span instead of an img, fix it
+    if (imageSpan && imageSpan.tagName === "SPAN") {
+      const img = document.createElement("img");
+      img.className = "photo-slider-image-xjG6U";
+      img.alt = item.querySelector('[itemprop="name"]')?.textContent || "";
+      img.src = imageUrl;
+
+      // Replace span with img
+      imageSpan.replaceWith(img);
+    }
+  });
+}
+
+// Process new items - fix images and add to DOM
+function processNewItems(newItems, targetContainer) {
+  console.log(`${logPrefix} Processing ${newItems.length} new items into ${targetContainer.className}`);
+  newItems.forEach((offer) => {
+    const clone = offer.cloneNode(true);
+    removeBrokenElements(clone);
+    fixItemImages(clone);
+    targetContainer.appendChild(clone);
+    // Process the new offer
+    const offerId = getOfferId(clone);
+    const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
+    let userId = null;
+    try {
+      const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
+      userId = sellerUrl?.split("/")[2]?.split("?")[0];
+    } catch (error) {
+      console.error("Error extracting userId:", error);
+      userId = undefined;
+    } finally {
+      updateOfferState(clone, { offerId, userId });
+    }
+  });
+}
+
+async function fetchNextPage() {
+  if (!isPaginationEnabled || isLoading) {
+    console.log(`${logPrefix} Fetch aborted - script disabled or already loading`);
+    return;
+  }
+
+  const spinner = createSpinner();
+
+  const nextPageUrl = getNextPageUrl();
+  if (!nextPageUrl) {
+    console.log(`${logPrefix} Все станицы получены`);
+    return;
+  }
+
+  isLoading = true;
+  console.log(`${logPrefix} Загрузка страницы  ${getCurrentPage() + 1}`);
+
+  // Append spinner to pagination
+  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
+  if (paginator) {
+    paginator.style.position = "relative";
+
+    // Create status text element
+    const statusText = document.createElement("span");
+    statusText.className = "avito-pagination-status";
+    statusText.textContent = `Загрузка страницы ${getCurrentPage() + 1}`;
+    statusText.style.marginRight = "10px";
+    statusText.style.color = "#999";
+    statusText.style.fontSize = "14px";
+
+    // Add elements to pagination
+    spinner.style.display = "block";
+    paginator.appendChild(statusText);
+    paginator.appendChild(spinner);
+  }
+
+  try {
+    const response = await fetch(nextPageUrl);
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    // Find all containers in the new page
+    const newContainers = doc.querySelectorAll(".items-items-Iy89l");
+    console.log(`${logPrefix} Found ${newContainers.length} containers in new page`);
+
+    if (newContainers.length === 0) {
+      console.log(`${logPrefix} No containers found in new page`);
+      return;
+    }
+
+    // Find catalog data in the new page
+    const scriptElements = doc.querySelectorAll("script");
+    for (const script of scriptElements) {
+      if (script.textContent.includes("abCentral") && !script.textContent.startsWith("window[")) {
+        try {
+          const initCatalogDataContent = script.textContent;
+          const decodedJson = decodeHtmlEntities(initCatalogDataContent);
+          const newInitialData = JSON.parse(decodedJson);
+          const newCatalogData = getCatalogDataFromInit(newInitialData);
+          // Merge new catalog data with existing
+          catalogData = [...catalogData, ...newCatalogData];
+          console.log(`${logPrefix} Added ${newCatalogData.length} items to catalogData`);
+          break;
+        } catch (error) {
+          console.error(`${logPrefix} Error parsing catalog data from new page:`, error);
+        }
+      }
+    }
+
+    // Process main offers (first container)
+    const newMainOffers = Array.from(newContainers[0].children).filter((el) => el.hasAttribute("data-item-id"));
+    if (newMainOffers.length > 0) {
+      const mainContainer = getMainOffersContainer();
+      if (mainContainer) {
+        console.log(`${logPrefix} Adding ${newMainOffers.length} main offers`);
+        processNewItems(newMainOffers, mainContainer);
+      } else {
+        console.log(`${logPrefix} Main container not found`);
+      }
+    }
+
+    // Process other cities offers (second container if exists)
+    if (newContainers.length > 1) {
+      const newOtherCitiesOffers = Array.from(newContainers[1].children).filter((el) => el.hasAttribute("data-item-id"));
+      if (newOtherCitiesOffers.length > 0) {
+        let targetContainer = getOtherCitiesContainer();
+
+        if (!targetContainer) {
+          console.log(`${logPrefix} No existing other cities container - creating one`);
+          // Create new container if none exists
+          const mainContainer = getMainOffersContainer();
+          if (mainContainer) {
+            const newContainer = document.createElement("div");
+            newContainer.className = "items-items-Iy89l";
+            mainContainer.after(newContainer);
+            targetContainer = newContainer;
+          }
+        }
+
+        if (targetContainer) {
+          console.log(`${logPrefix} Adding ${newOtherCitiesOffers.length} other cities offers`);
+          processNewItems(newOtherCitiesOffers, targetContainer);
+        }
+      }
+    }
+
+    // Update pagination
+    const newPaginator = doc.querySelector(".js-pages.pagination-pagination-JPulP");
+    if (newPaginator) {
+      if (paginator) {
+        paginator.innerHTML = newPaginator.innerHTML;
+        console.log(`${logPrefix} Updated pagination controls`);
+      }
+    }
+    console.log(`${logPrefix} Страница успешно загружена`);
+  } catch (error) {
+    console.error(`${logPrefix} Ошибка загрузки страницы:`, error);
+  } finally {
+    isLoading = false;
+
+    // Remove spinner and status text from pagination
+    spinner.style.display = "none";
+    if (spinner.parentNode) {
+      const statusText = spinner.parentNode.querySelector(".avito-pagination-status");
+      if (statusText) statusText.remove();
+      spinner.parentNode.removeChild(spinner);
+    }
+  }
+}
+
+function checkPaginationVisibility() {
+  if (!isPaginationEnabled || isLoading) return;
+  clearTimeout(checkTimeout);
+  checkTimeout = setTimeout(() => {
+    if (isPaginatorVisible()) {
+      fetchNextPage();
+    }
+  }, 200);
+}
+
+// Initialize MutationObserver to watch for paginator changes
+function initPaginationObserver() {
+  const observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.addedNodes.length) {
+        // console.log(`${logPrefix} DOM mutation detected, checking paginator visibility`);
+        checkPaginationVisibility();
+      }
+    });
+  });
+
+  // Observe the document body for added nodes
+  observer.observe(document, {
+    childList: true,
+    subtree: true,
+  });
+
+  return observer;
+}
+
+// Initialize pagination functionality
+async function initPagination() {
+  console.log(`${logPrefix} Initializing Avito Auto-Pagination script`);
+
+  // Set up scroll listener
+  window.addEventListener("scroll", checkPaginationVisibility);
+
+  // Set up mutation observer
+  initPaginationObserver();
+}
+
+// ==================== MAIN FUNCTIONALITY ====================
+
 function getSellerId(initialData) {
   return initialData.data.ssrData.initData.result.value.data.customLink || initialData.data.ssrData.initData.result.value.data.profileUserHash;
 }
@@ -450,320 +758,6 @@ function decodeHtmlEntities(str) {
   return txt.value;
 }
 
-// ==================== AUTO-PAGINATION FUNCTIONALITY ====================
-function createSpinner() {
-  const spinner = document.createElement("div");
-  spinner.className = "avito-auto-pagination-loader-spinner";
-  spinner.style.display = "none";
-  spinner.style.position = "absolute";
-  spinner.style.right = "10px";
-  spinner.style.top = "50%";
-  spinner.style.transform = "translateY(-50%)";
-  spinner.style.border = "3px solid rgba(255, 255, 255, 0.3)";
-  spinner.style.borderTop = "3px solid white";
-  spinner.style.borderRadius = "50%";
-  spinner.style.width = "16px";
-  spinner.style.height = "16px";
-  spinner.style.animation = "spin 0.8s linear infinite";
-
-  // Add keyframes for spinner if not already added
-  if (!document.getElementById("avito-spinner-style")) {
-    const style = document.createElement("style");
-    style.id = "avito-spinner-style";
-    style.textContent = `
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  return spinner;
-}
-
-// Find the main offers container
-function getMainOffersContainer() {
-  const containers = document.querySelectorAll(".items-items-Iy89l");
-  return containers.length > 0 ? containers[0] : null;
-}
-
-// Find the "other cities" container
-function getOtherCitiesContainer() {
-  const containers = document.querySelectorAll(".items-items-Iy89l");
-  return containers.length > 1 ? containers[1] : null;
-}
-
-// Check if paginator is visible
-function isPaginatorVisible() {
-  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
-  if (!paginator) {
-    console.log(`${logPrefix} Paginator not found`);
-    return false;
-  }
-
-  const rect = paginator.getBoundingClientRect();
-  const isVisible = rect.top <= (window.innerHeight || document.documentElement.clientHeight) && rect.bottom >= 0;
-
-  console.log(`${logPrefix} Paginator visibility check: ${isVisible}`);
-  return isVisible;
-}
-
-// Get current page number
-function getCurrentPage() {
-  const currentPageElement = document.querySelector(".styles-module-item_current-u7t1s");
-  if (currentPageElement) {
-    const pageText = currentPageElement.querySelector(".styles-module-text-LjJRZ")?.textContent;
-    const page = parseInt(pageText, 10) || 1;
-    console.log(`${logPrefix} Current page: ${page}`);
-    return page;
-  }
-  console.log(`${logPrefix} Current page not found, defaulting to 1`);
-  return 1;
-}
-
-// Get next page URL
-function getNextPageUrl() {
-  const currentPage = getCurrentPage();
-  const nextPageElement = document.querySelector(`[data-value="${currentPage + 1}"]`);
-  const url = nextPageElement ? nextPageElement.href : null;
-  console.log(`${logPrefix} Next page URL: ${url}`);
-  return url;
-}
-
-function removeBrokenElements(item) {
-  item.querySelectorAll('[class*="photo-slider-extra"]').forEach((container) => {
-    container.remove();
-  });
-
-  item.querySelectorAll('[class*="iva-item-actions-"]').forEach((container) => {
-    container.remove();
-  });
-}
-
-// Fix missing images in an item
-function fixItemImages(item) {
-  const imageContainers = item.querySelectorAll('[class*="photo-slider-dotsCounter"]');
-  imageContainers.forEach((container) => {
-    const imageMarker = container.getAttribute("data-marker");
-    if (!imageMarker || !imageMarker.startsWith("slider-image/image-")) return;
-
-    const imageUrl = imageMarker.replace("slider-image/image-", "");
-    const imageSpan = container.querySelector(".photo-slider-image-xjG6U");
-
-    // If we have a span instead of an img, fix it
-    if (imageSpan && imageSpan.tagName === "SPAN") {
-      const img = document.createElement("img");
-      img.className = "photo-slider-image-xjG6U";
-      img.alt = item.querySelector('[itemprop="name"]')?.textContent || "";
-      img.src = imageUrl;
-
-      // Replace span with img
-      imageSpan.replaceWith(img);
-    }
-  });
-}
-
-// Process new items - fix images and add to DOM
-function processNewItems(newItems, targetContainer) {
-  console.log(`${logPrefix} Processing ${newItems.length} new items into ${targetContainer.className}`);
-  newItems.forEach((offer) => {
-    const clone = offer.cloneNode(true);
-    removeBrokenElements(clone);
-    fixItemImages(clone);
-    targetContainer.appendChild(clone);
-    // Process the new offer
-    const offerId = getOfferId(clone);
-    const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
-    let userId = null;
-    try {
-      const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-      userId = sellerUrl?.split("/")[2]?.split("?")[0];
-    } catch (error) {
-      console.error("Error extracting userId:", error);
-      userId = undefined;
-    } finally {
-      updateOfferState(clone, { offerId, userId });
-    }
-  });
-}
-
-async function fetchNextPage() {
-  if (!isPaginationEnabled || isLoading) {
-    console.log(`${logPrefix} Fetch aborted - script disabled or already loading`);
-    return;
-  }
-
-  const spinner = createSpinner();
-
-  const nextPageUrl = getNextPageUrl();
-  if (!nextPageUrl) {
-    console.log(`${logPrefix} Все станицы получены`);
-    return;
-  }
-
-  isLoading = true;
-  console.log(`${logPrefix} Загрузка страницы  ${getCurrentPage() + 1}`);
-
-  // Append spinner to pagination
-  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
-  if (paginator) {
-    paginator.style.position = "relative";
-
-    // Create status text element
-    const statusText = document.createElement("span");
-    statusText.className = "avito-pagination-status";
-    statusText.textContent = `Загрузка страницы ${getCurrentPage() + 1}`;
-    statusText.style.marginRight = "10px";
-    statusText.style.color = "#999";
-    statusText.style.fontSize = "14px";
-
-    // Add elements to pagination
-    spinner.style.display = "block";
-    paginator.appendChild(statusText);
-    paginator.appendChild(spinner);
-  }
-
-  try {
-    const response = await fetch(nextPageUrl);
-    const html = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-
-    // Find all containers in the new page
-    const newContainers = doc.querySelectorAll(".items-items-Iy89l");
-    console.log(`${logPrefix} Found ${newContainers.length} containers in new page`);
-
-    if (newContainers.length === 0) {
-      console.log(`${logPrefix} No containers found in new page`);
-      return;
-    }
-
-    // Find catalog data in the new page
-    const scriptElements = doc.querySelectorAll("script");
-    for (const script of scriptElements) {
-      if (script.textContent.includes("abCentral") && !script.textContent.startsWith("window[")) {
-        try {
-          const initCatalogDataContent = script.textContent;
-          const decodedJson = decodeHtmlEntities(initCatalogDataContent);
-          const newInitialData = JSON.parse(decodedJson);
-          const newCatalogData = getCatalogDataFromInit(newInitialData);
-          // Merge new catalog data with existing
-          catalogData = [...catalogData, ...newCatalogData];
-          console.log(`${logPrefix} Added ${newCatalogData.length} items to catalogData`);
-          break;
-        } catch (error) {
-          console.error(`${logPrefix} Error parsing catalog data from new page:`, error);
-        }
-      }
-    }
-
-    // Process main offers (first container)
-    const newMainOffers = Array.from(newContainers[0].children).filter((el) => el.hasAttribute("data-item-id"));
-    if (newMainOffers.length > 0) {
-      const mainContainer = getMainOffersContainer();
-      if (mainContainer) {
-        console.log(`${logPrefix} Adding ${newMainOffers.length} main offers`);
-        processNewItems(newMainOffers, mainContainer);
-      } else {
-        console.log(`${logPrefix} Main container not found`);
-      }
-    }
-
-    // Process other cities offers (second container if exists)
-    if (newContainers.length > 1) {
-      const newOtherCitiesOffers = Array.from(newContainers[1].children).filter((el) => el.hasAttribute("data-item-id"));
-      if (newOtherCitiesOffers.length > 0) {
-        let targetContainer = getOtherCitiesContainer();
-
-        if (!targetContainer) {
-          console.log(`${logPrefix} No existing other cities container - creating one`);
-          // Create new container if none exists
-          const mainContainer = getMainOffersContainer();
-          if (mainContainer) {
-            const newContainer = document.createElement("div");
-            newContainer.className = "items-items-Iy89l";
-            mainContainer.after(newContainer);
-            targetContainer = newContainer;
-          }
-        }
-
-        if (targetContainer) {
-          console.log(`${logPrefix} Adding ${newOtherCitiesOffers.length} other cities offers`);
-          processNewItems(newOtherCitiesOffers, targetContainer);
-        }
-      }
-    }
-
-    // Update pagination
-    const newPaginator = doc.querySelector(".js-pages.pagination-pagination-JPulP");
-    if (newPaginator) {
-      if (paginator) {
-        paginator.innerHTML = newPaginator.innerHTML;
-        console.log(`${logPrefix} Updated pagination controls`);
-      }
-    }
-    console.log(`${logPrefix} Страница успешно загружена`);
-  } catch (error) {
-    console.error(`${logPrefix} Ошибка загрузки страницы:`, error);
-  } finally {
-    isLoading = false;
-
-    // Remove spinner and status text from pagination
-    spinner.style.display = "none";
-    if (spinner.parentNode) {
-      const statusText = spinner.parentNode.querySelector(".avito-pagination-status");
-      if (statusText) statusText.remove();
-      spinner.parentNode.removeChild(spinner);
-    }
-  }
-}
-
-// Check pagination visibility with debounce
-let checkTimeout;
-function checkPaginationVisibility() {
-  if (!isPaginationEnabled || isLoading) return;
-  clearTimeout(checkTimeout);
-  checkTimeout = setTimeout(() => {
-    if (isPaginatorVisible()) {
-      fetchNextPage();
-    }
-  }, 200);
-}
-
-// Initialize MutationObserver to watch for paginator changes
-function initPaginationObserver() {
-  const observer = new MutationObserver(function (mutations) {
-    mutations.forEach(function (mutation) {
-      if (mutation.addedNodes.length) {
-        console.log(`${logPrefix} DOM mutation detected, checking paginator visibility`);
-        checkPaginationVisibility();
-      }
-    });
-  });
-
-  // Observe the document body for added nodes
-  observer.observe(document, {
-    childList: true,
-    subtree: true,
-  });
-
-  return observer;
-}
-
-// Initialize pagination functionality
-async function initPagination() {
-  console.log(`${logPrefix} Initializing Avito Auto-Pagination script`);
-
-  // Set up scroll listener
-  window.addEventListener("scroll", checkPaginationVisibility);
-
-  // Set up mutation observer
-  initPaginationObserver();
-}
-
-// ==================== MAIN FUNCTIONALITY ====================
-
 async function main() {
   const currentUrl = window.location.toString();
   const userPageStrings = ["www.avito.ru/user/", "sellerId", "brands"];
@@ -771,7 +765,6 @@ async function main() {
   if (isUserPage) console.log(`${logPrefix} страница определена: продавец`);
   else {
     console.log(`${logPrefix} страница определена: поиск`);
-    // Initialize pagination only on search pages
     await initPagination();
   }
 
@@ -867,6 +860,7 @@ browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
 let catalogData;
 let isLoading = false;
+let checkTimeout;
 let blacklistUsers = [];
 let blacklistOffers = [];
 
