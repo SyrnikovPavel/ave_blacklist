@@ -451,88 +451,7 @@ function decodeHtmlEntities(str) {
 }
 
 // ==================== AUTO-PAGINATION FUNCTIONALITY ====================
-
-// Check if script is enabled (default to true)
-const SCRIPT_ENABLED_KEY = "avito-auto-pagination-enabled";
-let isPaginationEnabled = true;
-let isLoading = false;
-
-// Create controls element
-async function createPaginationControls() {
-  if (!document.body) {
-    await new Promise((resolve) => {
-      const observer = new MutationObserver(() => {
-        if (document.body) {
-          observer.disconnect();
-          resolve();
-        }
-      });
-      observer.observe(document.documentElement, { childList: true });
-    });
-  }
-
-  const controls = document.createElement("div");
-  controls.className = "avito-auto-pagination-controls";
-  controls.style.position = "fixed";
-  controls.style.left = "20px";
-  controls.style.bottom = "20px";
-  controls.style.zIndex = "9999";
-  controls.style.background = "white";
-  controls.style.padding = "10px 14px";
-  controls.style.borderRadius = "10px";
-  controls.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.15)";
-  controls.style.display = "flex";
-  controls.style.flexDirection = "column";
-  controls.style.alignItems = "center";
-  controls.style.gap = "8px";
-  controls.style.minWidth = "180px";
-  controls.style.fontFamily = "Arial, sans-serif";
-  controls.style.fontSize = "13px";
-  controls.style.color = "#333";
-
-  const status = document.createElement("div");
-  status.className = "avito-auto-pagination-status";
-  status.textContent = isPaginationEnabled ? "Авто пагинация включена" : "Авто пагинация отключена";
-  status.style.textAlign = "center";
-  status.style.fontWeight = "500";
-
-  const button = document.createElement("button");
-  button.className = "avito-auto-pagination-toggle";
-  button.textContent = isPaginationEnabled ? "Отключить" : "Включить";
-  button.style.position = "relative";
-  button.style.padding = "8px 14px";
-  button.style.border = "none";
-  button.style.borderRadius = "6px";
-  button.style.background = "#3498db";
-  button.style.color = "white";
-  button.style.fontWeight = "bold";
-  button.style.cursor = "pointer";
-  button.style.width = "100%";
-  button.style.display = "flex";
-  button.style.alignItems = "center";
-  button.style.justifyContent = "center";
-  button.style.gap = "8px";
-  button.style.transition = "background 0.3s ease";
-
-  button.onmouseenter = () => {
-    button.style.background = "#2980b9";
-  };
-  button.onmouseleave = () => {
-    button.style.background = "#3498db";
-  };
-
-  button.onclick = () => {
-    isPaginationEnabled = !isPaginationEnabled;
-    button.childNodes[0].textContent = isPaginationEnabled ? "Отключить" : "Включить";
-    status.textContent = isPaginationEnabled ? "Авто пагинация включена" : "Авто пагинация отключена";
-    if (isPaginationEnabled) checkPaginationVisibility();
-  };
-
-  controls.appendChild(status);
-  controls.appendChild(button);
-  document.body.appendChild(controls);
-
-  // Create pagination spinner (but don't append it yet)
+function createSpinner() {
   const spinner = document.createElement("div");
   spinner.className = "avito-auto-pagination-loader-spinner";
   spinner.style.display = "none";
@@ -560,7 +479,7 @@ async function createPaginationControls() {
     document.head.appendChild(style);
   }
 
-  return { controls, status, button, spinner };
+  return spinner;
 }
 
 // Find the main offers container
@@ -669,31 +588,40 @@ function processNewItems(newItems, targetContainer) {
   });
 }
 
-// Fetch next page
 async function fetchNextPage() {
   if (!isPaginationEnabled || isLoading) {
     console.log(`${logPrefix} Fetch aborted - script disabled or already loading`);
     return;
   }
 
+  const spinner = createSpinner();
+
   const nextPageUrl = getNextPageUrl();
   if (!nextPageUrl) {
-    paginationControls.status.textContent = "Все станицы получены";
     console.log(`${logPrefix} Все станицы получены`);
     return;
   }
 
   isLoading = true;
-  paginationControls.button.disabled = true;
-  paginationControls.status.textContent = "Загрузка страницы " + (getCurrentPage() + 1);
   console.log(`${logPrefix} Загрузка страницы  ${getCurrentPage() + 1}`);
 
   // Append spinner to pagination
   const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
   if (paginator) {
     paginator.style.position = "relative";
-    paginationControls.spinner.style.display = "block";
-    paginator.appendChild(paginationControls.spinner);
+
+    // Create status text element
+    const statusText = document.createElement("span");
+    statusText.className = "avito-pagination-status";
+    statusText.textContent = `Загрузка страницы ${getCurrentPage() + 1}`;
+    statusText.style.marginRight = "10px";
+    statusText.style.color = "#999";
+    statusText.style.fontSize = "14px";
+
+    // Add elements to pagination
+    spinner.style.display = "block";
+    paginator.appendChild(statusText);
+    paginator.appendChild(spinner);
   }
 
   try {
@@ -775,26 +703,19 @@ async function fetchNextPage() {
         console.log(`${logPrefix} Updated pagination controls`);
       }
     }
-
-    paginationControls.status.textContent = "Страница успешно загружена";
     console.log(`${logPrefix} Страница успешно загружена`);
   } catch (error) {
     console.error(`${logPrefix} Ошибка загрузки страницы:`, error);
-    paginationControls.status.textContent = "Ошибка загрузки страницы";
   } finally {
     isLoading = false;
-    paginationControls.button.disabled = false;
 
-    // Remove spinner from pagination
-    paginationControls.spinner.style.display = "none";
-    if (paginationControls.spinner.parentNode) {
-      paginationControls.spinner.parentNode.removeChild(paginationControls.spinner);
+    // Remove spinner and status text from pagination
+    spinner.style.display = "none";
+    if (spinner.parentNode) {
+      const statusText = spinner.parentNode.querySelector(".avito-pagination-status");
+      if (statusText) statusText.remove();
+      spinner.parentNode.removeChild(spinner);
     }
-
-    // Wait a bit before allowing the next load
-    setTimeout(() => {
-      paginationControls.status.textContent = isPaginationEnabled ? "Авто пагинация включена" : "Авто пагинация отключена";
-    }, 2000);
   }
 }
 
@@ -802,7 +723,6 @@ async function fetchNextPage() {
 let checkTimeout;
 function checkPaginationVisibility() {
   if (!isPaginationEnabled || isLoading) return;
-
   clearTimeout(checkTimeout);
   checkTimeout = setTimeout(() => {
     if (isPaginatorVisible()) {
@@ -823,7 +743,7 @@ function initPaginationObserver() {
   });
 
   // Observe the document body for added nodes
-  observer.observe(document.body, {
+  observer.observe(document, {
     childList: true,
     subtree: true,
   });
@@ -834,14 +754,6 @@ function initPaginationObserver() {
 // Initialize pagination functionality
 async function initPagination() {
   console.log(`${logPrefix} Initializing Avito Auto-Pagination script`);
-
-  // Create controls
-  window.paginationControls = await createPaginationControls();
-
-  // Add initial loader if enabled
-  if (isPaginationEnabled && isPaginatorVisible()) {
-    fetchNextPage();
-  }
 
   // Set up scroll listener
   window.addEventListener("scroll", checkPaginationVisibility);
@@ -887,7 +799,6 @@ async function main() {
                 node.querySelector(`[class^="ProfileBadge-root-"]`))
             ) {
               console.log(`${logPrefix} страница продваца обновлена`);
-              // debugger;
               if (!initialData) return;
               let userId = getSellerId(initialData);
               processSellerPage(userId);
@@ -939,8 +850,23 @@ async function load_arrays() {
   blacklistOffers = await syncGet("blacklistOffers");
 }
 
-let catalogData;
+let isPaginationEnabled = false;
+browser.storage.local.get(["isPaginationEnabled"], function (result) {
+  if (result.isPaginationEnabled !== undefined) {
+    isPaginationEnabled = result.isPaginationEnabled;
+  }
+});
+browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  if (request.action === "updatePaginationState") {
+    isPaginationEnabled = request.isEnabled;
+    if (isPaginationEnabled) {
+      checkPaginationVisibility();
+    }
+  }
+});
 
+let catalogData;
+let isLoading = false;
 let blacklistUsers = [];
 let blacklistOffers = [];
 
