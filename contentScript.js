@@ -424,20 +424,6 @@ function processSellerPage(userId) {
   }
 }
 
-function waitForNodeContent(node, string) {
-  // ждем когда текст нода загрузится в dom полностью
-  // в цикле проверяем, если ли в тексте `string`, пока не найдем
-  return new Promise((resolve) => {
-    const checkInterval = 100;
-    const intervalId = setInterval(() => {
-      if (node.textContent.includes(string)) {
-        clearInterval(intervalId);
-        resolve(node.textContent);
-      }
-    }, checkInterval);
-  });
-}
-
 function getCatalogDataFromInit(initialData) {
   const catalogItems = initialData.data.catalog.items;
   const extraItems = initialData.data.catalog.extraBlockItems;
@@ -450,6 +436,22 @@ function decodeHtmlEntities(str) {
   const txt = document.createElement("textarea");
   txt.innerHTML = str;
   return txt.value;
+}
+
+async function getDataNodeContent() {
+  const response = await fetch(window.location.href);
+  const html = await response.text();
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const scripts = doc.querySelectorAll("script");
+  for (const script of scripts) {
+    if (script.textContent.includes("abCentral") && script.textContent.trim().startsWith("{")) {
+      return script.textContent;
+    }
+  }
+
+  console.warn(`${logPrefix} dataNodeContent не найден на старнице`);
 }
 
 async function main() {
@@ -489,8 +491,7 @@ async function main() {
               processSellerPage(userId);
             }
             if (node?.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__")) {
-              // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
-              const initialDataContent = await waitForNodeContent(node, "__mfe__");
+              const initialDataContent = node.textContent;
               initialData = parseInitialData(initialDataContent);
               console.log(`${logPrefix} initialData найден`, initialData);
               let userId = getSellerId(initialData);
@@ -508,14 +509,22 @@ async function main() {
               if (!catalogData) return;
               processSearchPage();
             }
-            if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && !node?.textContent?.startsWith("window[")) {
-              // waitForNodeContent нужен, так как в моем тестировании иногда, при получении текста сразу, он был обрезан вполовину или вообще был undefined
-              const initCatalogDataContent = await waitForNodeContent(node, "isAuthenticated");
-              const decodedJson = decodeHtmlEntities(initCatalogDataContent);
-              const initialData = JSON.parse(decodedJson);
-              catalogData = getCatalogDataFromInit(initialData);
-              console.log(`${logPrefix} catalogData найден`, catalogData);
-              processSearchPage();
+            if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && node?.textContent?.startsWith("{")) {
+              try {
+                let dataNodeContent = node.textContent;
+                if (!dataNodeContent?.endsWith("}}")) {
+                  console.log(`${logPrefix} Ошибка парсинга dataNodeContent с текущей старницы, пробуем альтернативный вариант`);
+                  dataNodeContent = await getDataNodeContent();
+                }
+
+                const decodedJson = decodeHtmlEntities(dataNodeContent);
+                const initialData = JSON.parse(decodedJson);
+                catalogData = getCatalogDataFromInit(initialData);
+                console.log(`${logPrefix} catalogData получен`, catalogData);
+                processSearchPage();
+              } catch (error) {
+                console.error("Error processing catalog data:", error);
+              }
             }
           }
         });
