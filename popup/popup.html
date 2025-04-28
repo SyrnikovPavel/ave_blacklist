@@ -3,14 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Управление базой данных</title>
+    <title>Ave Blacklist</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <div class="container">
-      <h1>Управление базой данных</h1>
+      <h1>Ave Blacklist</h1>
 
       <div class="operations-grid">
+        <div class="operation-section">
+          <div class="compact-toggle">
+            <h2>Автопагинация</h2>
+            <label class="switch">
+              <input type="checkbox" id="autoPaginationToggle" />
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
         <div class="operation-section">
           <h2>Экспорт</h2>
           <button id="exportButton">Экспорт базы данных</button>

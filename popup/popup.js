@@ -3,6 +3,28 @@ if (typeof browser === "undefined") {
   var browser = chrome;
 }
 
+const autoPaginationToggle = document.getElementById("autoPaginationToggle");
+
+// Load auto-pagination state
+browser.storage.local.get(["isPaginationEnabled"], function (result) {
+  const isEnabled = result.isPaginationEnabled !== false; // default to true
+  autoPaginationToggle.checked = isEnabled;
+});
+
+// Save auto-pagination state when toggled
+autoPaginationToggle.addEventListener("change", function () {
+  const isEnabled = this.checked;
+  browser.storage.local.set({ isPaginationEnabled: isEnabled });
+
+  // Send message to content script to update the state
+  browser.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    browser.tabs.sendMessage(tabs[0].id, {
+      action: "updatePaginationState",
+      isEnabled: isEnabled,
+    });
+  });
+});
+
 function hasNumber(myString) {
   return /\d/.test(myString);
 }
@@ -252,7 +274,7 @@ function clearDatabase() {
 }
 
 function openNewTab() {
-  chrome.tabs.create({ url: chrome.runtime.getURL("popup/import_from_text.html") });
+  browser.tabs.create({ url: browser.runtime.getURL("popup/import_from_text.html") });
 }
 
 const importButton = document.getElementById("importButton");
