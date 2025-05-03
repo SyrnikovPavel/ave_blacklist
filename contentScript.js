@@ -141,17 +141,17 @@ function createSpinner() {
 }
 
 function getMainOffersContainer() {
-  const containers = document.querySelectorAll(".items-items-Iy89l");
+  const containers = document.querySelectorAll('[class*="items-items-"]');
   return containers.length > 0 ? containers[0] : null;
 }
 
 function getOtherCitiesContainer() {
-  const containers = document.querySelectorAll(".items-items-Iy89l");
+  const containers = document.querySelectorAll('[class*="items-items-"]');
   return containers.length > 1 ? containers[1] : null;
 }
 
 function isPaginatorVisible() {
-  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
+  const paginator = document.querySelector('[class*="js-pages pagination-pagination-"]');
   if (!paginator) {
     console.log(`${logPrefix} Paginator not found`);
     return false;
@@ -166,9 +166,9 @@ function isPaginatorVisible() {
 
 // Get current page number
 function getCurrentPage() {
-  const currentPageElement = document.querySelector(".styles-module-item_current-u7t1s");
+  const currentPageElement = document.querySelector('[class*="styles-module-item_current-"]');
   if (currentPageElement) {
-    const pageText = currentPageElement.querySelector(".styles-module-text-LjJRZ")?.textContent;
+    const pageText = currentPageElement.querySelector("span")?.textContent;
     const page = parseInt(pageText, 10) || 1;
     console.log(`${logPrefix} Current page: ${page}`);
     return page;
@@ -260,7 +260,7 @@ async function fetchNextPage() {
   console.log(`${logPrefix} Загрузка страницы  ${getCurrentPage() + 1}`);
 
   // Append spinner to pagination
-  const paginator = document.querySelector(".js-pages.pagination-pagination-JPulP");
+  const paginator = document.querySelector('[class*="js-pages pagination-pagination-"]');
   if (paginator) {
     paginator.style.position = "relative";
 
@@ -285,7 +285,8 @@ async function fetchNextPage() {
     const doc = parser.parseFromString(html, "text/html");
 
     // Find all containers in the new page
-    const newContainers = doc.querySelectorAll(".items-items-Iy89l");
+    const newContainers = doc.querySelectorAll('[class*="items-items"]');
+
     console.log(`${logPrefix} Found ${newContainers.length} containers in new page`);
 
     if (newContainers.length === 0) {
@@ -336,7 +337,7 @@ async function fetchNextPage() {
           const mainContainer = getMainOffersContainer();
           if (mainContainer) {
             const newContainer = document.createElement("div");
-            newContainer.className = "items-items-Iy89l";
+            newContainer.className = "items-items-";
             mainContainer.after(newContainer);
             targetContainer = newContainer;
           }
@@ -350,7 +351,7 @@ async function fetchNextPage() {
     }
 
     // Update pagination
-    const newPaginator = doc.querySelector(".js-pages.pagination-pagination-JPulP");
+    const newPaginator = doc.querySelector('[class*="js-pages pagination-pagination-"]');
     if (newPaginator) {
       if (paginator) {
         paginator.innerHTML = newPaginator.innerHTML;
