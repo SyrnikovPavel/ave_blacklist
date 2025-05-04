@@ -203,12 +203,13 @@ function fixItemImages(item) {
     if (!imageMarker || !imageMarker.startsWith("slider-image/image-")) return;
 
     const imageUrl = imageMarker.replace("slider-image/image-", "");
-    const imageSpan = container.querySelector(".photo-slider-image-xjG6U");
+
+    const imageSpan = container.querySelector("[class*='photo-slider-image-']");
 
     // If we have a span instead of an img, fix it
     if (imageSpan && imageSpan.tagName === "SPAN") {
       const img = document.createElement("img");
-      img.className = "photo-slider-image-xjG6U";
+      img.className = "photo-slider-image";
       img.alt = item.querySelector('[itemprop="name"]')?.textContent || "";
       img.src = imageUrl;
 
