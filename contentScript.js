@@ -666,7 +666,7 @@ function processSearchPage() {
       const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
       userId = sellerUrl?.split("/")[2]?.split("?")[0];
     } catch (error) {
-      console.error("Error extracting userId:", error);
+      console.warn(`${logPrefix} Error extracting userId:`, error);
       userId = undefined;
     } finally {
       updateOfferState(offerElement, { offerId, userId });
