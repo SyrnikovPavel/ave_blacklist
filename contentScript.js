@@ -822,7 +822,7 @@ async function main() {
             if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && node?.textContent?.startsWith("{")) {
               try {
                 let dataNodeContent = node.textContent;
-                if (!dataNodeContent?.endsWith("}}")) {
+                if (!dataNodeContent?.endsWith("}")) {
                   console.log(`${logPrefix} Ошибка парсинга dataNodeContent с текущей старницы, пробуем альтернативный вариант`);
                   dataNodeContent = await getDataNodeContent();
                 }
