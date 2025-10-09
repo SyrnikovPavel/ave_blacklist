@@ -232,8 +232,40 @@ function processNewItems(newItems, targetContainer) {
     const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
     let userId = null;
     try {
-      const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-      userId = sellerUrl?.split("/")[2]?.split("?")[0];
+      // Если у нас есть userId напрямую из данных каталога
+      if (currentOfferData?.userId) {
+        userId = currentOfferData.userId;
+      } else {
+        // Пробуем извлечь из структуры iva
+        const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
+        if (sellerUrl) {
+          const userMatch = sellerUrl.match(/\/user\/([^\/]+)/);
+          const brandMatch = sellerUrl.match(/\/brands\/([^\/]+)/);
+          
+          if (userMatch) {
+            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+          } else if (brandMatch) {
+            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+          }
+        }
+      }
+      
+      // Если не получилось из данных каталога, пробуем извлечь из DOM
+      if (!userId) {
+        const sellerLinkElement = clone.querySelector('a[href*="/user/"]') || 
+                                 clone.querySelector('a[href*="/brands/"]');
+        if (sellerLinkElement) {
+          const sellerHref = sellerLinkElement.href;
+          const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
+          const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
+          
+          if (userMatch) {
+            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+          } else if (brandMatch) {
+            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+          }
+        }
+      }
     } catch (error) {
       console.error("Error extracting userId:", error);
       userId = undefined;
@@ -419,12 +451,34 @@ async function initPagination() {
 // ==================== MAIN FUNCTIONALITY ====================
 
 function getSellerId(initialData) {
-  return initialData.data.ssrData.initData.result.value.data.customLink || initialData.data.ssrData.initData.result.value.data.profileUserHash;
+  const customLink = initialData.data.ssrData.initData.result.value.data.customLink;
+  const profileUserHash = initialData.data.ssrData.initData.result.value.data.profileUserHash;
+  
+  // Поддерживаем как /user/ так и /brands/ ссылки
+  if (customLink) {
+    const userMatch = customLink.match(/\/user\/([^\/]+)/);
+    const brandMatch = customLink.match(/\/brands\/([^\/]+)/);
+    
+    if (userMatch) {
+      return userMatch[1].split('?')[0]; // Убираем параметры после ?
+    } else if (brandMatch) {
+      // Для брендов используем ID бренда
+      return brandMatch[1].split('?')[0]; // Убираем параметры после ?
+    }
+  }
+  
+  return profileUserHash;
 }
 
 function getCatalogData(initCatalogData) {
-  const catalogItems = initCatalogData.data.catalog.items;
-  const extraItems = initCatalogData.data.catalog.extraBlockItems;
+  // Проверяем существование необходимых свойств
+  if (!initCatalogData || !initCatalogData.data || !initCatalogData.data.catalog) {
+    console.warn(`${logPrefix} Неверная структура initCatalogData:`, initCatalogData);
+    return [];
+  }
+  
+  const catalogItems = initCatalogData.data.catalog.items || [];
+  const extraItems = initCatalogData.data.catalog.extraBlockItems || [];
   let allItems = catalogItems.concat(extraItems);
   allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
   return allItems;
@@ -662,9 +716,42 @@ function processSearchPage() {
     const offerId = getOfferId(offerElement);
     const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
     let userId = null;
+    
     try {
-      const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-      userId = sellerUrl?.split("/")[2]?.split("?")[0];
+      // Если у нас есть userId напрямую из данных каталога
+      if (currentOfferData?.userId) {
+        userId = currentOfferData.userId;
+      } else {
+        // Пробуем извлечь из структуры iva
+        const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
+        if (sellerUrl) {
+          const userMatch = sellerUrl.match(/\/user\/([^\/]+)/);
+          const brandMatch = sellerUrl.match(/\/brands\/([^\/]+)/);
+          
+          if (userMatch) {
+            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+          } else if (brandMatch) {
+            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+          }
+        }
+      }
+      
+      // Если не получилось из данных каталога, пробуем извлечь из DOM
+      if (!userId) {
+        const sellerLinkElement = offerElement.querySelector('a[href*="/user/"]') || 
+                                 offerElement.querySelector('a[href*="/brands/"]');
+        if (sellerLinkElement) {
+          const sellerHref = sellerLinkElement.href;
+          const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
+          const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
+          
+          if (userMatch) {
+            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+          } else if (brandMatch) {
+            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+          }
+        }
+      }
     } catch (error) {
       console.warn(`${logPrefix} Error extracting userId:`, error);
       userId = undefined;
@@ -733,11 +820,297 @@ function processSellerPage(userId) {
 }
 
 function getCatalogDataFromInit(initialData) {
-  const catalogItems = initialData.data.catalog.items;
-  const extraItems = initialData.data.catalog.extraBlockItems;
+  // Проверяем существование необходимых свойств
+  if (!initialData || !initialData.data || !initialData.data.catalog) {
+    console.warn(`${logPrefix} Неверная структура initialData:`, initialData);
+    return [];
+  }
+  
+  const catalogItems = initialData.data.catalog.items || [];
+  const extraItems = initialData.data.catalog.extraBlockItems || [];
   let allItems = catalogItems.concat(extraItems);
   allItems = allItems.filter((item) => item.hasOwnProperty("categoryId"));
   return allItems;
+}
+
+// Альтернативный способ получения данных каталога из DOM
+function getCatalogDataFromDOM() {
+  console.log(`${logPrefix} Попытка получения данных каталога из DOM`);
+  
+  const catalogData = [];
+  
+  // Способ 1: Извлечение данных из элементов с data-item-id
+  const offerElements = document.querySelectorAll('[data-item-id]');
+  offerElements.forEach(element => {
+    const offerId = element.getAttribute('data-item-id');
+    if (offerId) {
+      // Извлекаем информацию из DOM элемента
+      const titleElement = element.querySelector('[data-marker="item-title"]');
+      const priceElement = element.querySelector('[data-marker="item-price"]');
+      const sellerElement = element.querySelector('[data-marker="seller-info/summary"]');
+      const sellerLinkElement = element.querySelector('a[href*="/user/"]') || 
+                               element.querySelector('a[href*="/brands/"]');
+      
+      // Получаем ссылку на объявление
+      const offerLinkElement = element.querySelector('a[href*="/predlozheniya_uslug/"]');
+      const offerUrl = offerLinkElement ? offerLinkElement.href : '';
+      
+      // Извлекаем ID продавца из ссылки (поддерживаем и /user/ и /brands/)
+      let userId = null;
+      if (sellerLinkElement) {
+        const sellerHref = sellerLinkElement.href;
+        const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
+        const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
+        
+        if (userMatch) {
+          userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+        } else if (brandMatch) {
+          // Для брендов используем ID бренда
+          userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+        }
+      }
+      
+      catalogData.push({
+        id: parseInt(offerId),
+        title: titleElement?.textContent?.trim() || '',
+        price: priceElement?.textContent?.trim() || '',
+        seller: sellerElement?.textContent?.trim() || '',
+        url: offerUrl,
+        userId: userId,
+        // Создаем минимальную структуру для совместимости
+        iva: {
+          UserInfoStep: [{
+            payload: {
+              profile: {
+                link: sellerLinkElement?.href || ''
+              }
+            }
+          }]
+        }
+      });
+    }
+  });
+  
+  // Способ 2: Если не нашли элементы с data-item-id, пробуем из ссылок
+  if (catalogData.length === 0) {
+    const offerLinks = document.querySelectorAll('a[href*="/predlozheniya_uslug/"]');
+    offerLinks.forEach(link => {
+      const href = link.href;
+      const match = href.match(/\/predlozheniya_uslug\/(\d+)/);
+      if (match) {
+        const offerId = match[1];
+        const offerElement = link.closest('[class*="iva-item"]');
+        
+        if (offerElement) {
+          const titleElement = offerElement.querySelector('[data-marker="item-title"]') || 
+                              offerElement.querySelector('h2') || 
+                              offerElement.querySelector('[class*="title"]');
+          const priceElement = offerElement.querySelector('[data-marker="item-price"]') || 
+                              offerElement.querySelector('[class*="price"]');
+          const sellerElement = offerElement.querySelector('[data-marker="seller-info/summary"]') || 
+                               offerElement.querySelector('[class*="seller"]');
+          const sellerLinkElement = offerElement.querySelector('a[href*="/user/"]') || 
+                                   offerElement.querySelector('a[href*="/brands/"]');
+          
+          let userId = null;
+          if (sellerLinkElement) {
+            const sellerHref = sellerLinkElement.href;
+            const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
+            const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
+            
+            if (userMatch) {
+              userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+            } else if (brandMatch) {
+              userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+            }
+          }
+          
+          catalogData.push({
+            id: parseInt(offerId),
+            title: titleElement?.textContent?.trim() || '',
+            price: priceElement?.textContent?.trim() || '',
+            seller: sellerElement?.textContent?.trim() || '',
+            url: href,
+            userId: userId,
+            iva: {
+              UserInfoStep: [{
+                payload: {
+                  profile: {
+                    link: sellerLinkElement?.href || ''
+                  }
+                }
+              }]
+            }
+          });
+        }
+      }
+    });
+  }
+  
+  console.log(`${logPrefix} Найдено ${catalogData.length} объявлений в DOM`);
+  return catalogData;
+}
+
+// Способ получения данных из window.__preloadedState__
+function getCatalogDataFromPreloadedState() {
+  console.log(`${logPrefix} Попытка получения данных из window.__preloadedState__`);
+  
+  try {
+    if (window.__preloadedState__) {
+      const preloadedState = typeof window.__preloadedState__ === 'string' 
+        ? JSON.parse(decodeURIComponent(window.__preloadedState__))
+        : window.__preloadedState__;
+      
+      console.log(`${logPrefix} __preloadedState__ найден:`, preloadedState);
+      
+      // Ищем данные каталога в различных местах
+      if (preloadedState.catalog) {
+        return getCatalogDataFromInit({ data: preloadedState });
+      }
+      
+      // Ищем в других возможных местах
+      if (preloadedState.data?.catalog) {
+        return getCatalogDataFromInit(preloadedState);
+      }
+    }
+  } catch (error) {
+    console.warn(`${logPrefix} Ошибка парсинга __preloadedState__:`, error);
+  }
+  
+  return [];
+}
+
+// Дополнительная функция для извлечения данных из элементов с data-marker="item"
+function getCatalogDataFromItemMarkers() {
+  console.log(`${logPrefix} Поиск данных из элементов с data-marker="item"`);
+  
+  const catalogData = [];
+  const itemElements = document.querySelectorAll('[data-marker="item"]');
+  
+  itemElements.forEach(element => {
+    const offerId = element.getAttribute('data-item-id');
+    if (offerId) {
+      // Извлекаем информацию из различных селекторов
+      const titleElement = element.querySelector('[data-marker="item-title"]') || 
+                          element.querySelector('h2[itemprop="name"]') ||
+                          element.querySelector('h2');
+      const priceElement = element.querySelector('[data-marker="item-price"]') || 
+                          element.querySelector('[itemprop="offers"]') ||
+                          element.querySelector('[class*="price"]');
+      const sellerElement = element.querySelector('[data-marker="seller-info/summary"]') || 
+                           element.querySelector('[class*="seller"]');
+      const sellerLinkElement = element.querySelector('a[href*="/user/"]') || 
+                               element.querySelector('a[href*="/brands/"]');
+      
+      // Получаем ссылку на объявление
+      const offerLinkElement = element.querySelector('a[href*="/predlozheniya_uslug/"]');
+      const offerUrl = offerLinkElement ? offerLinkElement.href : '';
+      
+      // Извлекаем ID продавца из ссылки (поддерживаем и /user/ и /brands/)
+      let userId = null;
+      if (sellerLinkElement) {
+        const sellerHref = sellerLinkElement.href;
+        const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
+        const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
+        
+        if (userMatch) {
+          userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
+        } else if (brandMatch) {
+          // Для брендов используем ID бренда
+          userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
+        }
+      }
+      
+      catalogData.push({
+        id: parseInt(offerId),
+        title: titleElement?.textContent?.trim() || '',
+        price: priceElement?.textContent?.trim() || '',
+        seller: sellerElement?.textContent?.trim() || '',
+        url: offerUrl,
+        userId: userId,
+        iva: {
+          UserInfoStep: [{
+            payload: {
+              profile: {
+                link: sellerLinkElement?.href || ''
+              }
+            }
+          }]
+        }
+      });
+    }
+  });
+  
+  console.log(`${logPrefix} Найдено ${catalogData.length} элементов с data-marker="item"`);
+  return catalogData;
+}
+
+// Комбинированный способ получения данных каталога
+function getCatalogDataAlternative() {
+  console.log(`${logPrefix} Попытка альтернативного получения данных каталога`);
+  
+  // Способ 1: Из элементов с data-marker="item"
+  let catalogData = getCatalogDataFromItemMarkers();
+  
+  // Способ 2: Из DOM элементов с data-item-id
+  if (catalogData.length < 5) {
+    const domData = getCatalogDataFromDOM();
+    if (domData.length > catalogData.length) {
+      catalogData = domData;
+    }
+  }
+  
+  // Способ 3: Из window.__preloadedState__
+  if (catalogData.length < 5) {
+    const preloadedData = getCatalogDataFromPreloadedState();
+    if (preloadedData.length > catalogData.length) {
+      catalogData = preloadedData;
+    }
+  }
+  
+  // Способ 4: Извлечение из всех скриптов на странице
+  if (catalogData.length < 5) {
+    const scriptData = getCatalogDataFromScripts();
+    if (scriptData.length > catalogData.length) {
+      catalogData = scriptData;
+    }
+  }
+  
+  console.log(`${logPrefix} Итого получено ${catalogData.length} элементов каталога`);
+  return catalogData;
+}
+
+// Поиск данных каталога во всех скриптах
+function getCatalogDataFromScripts() {
+  console.log(`${logPrefix} Поиск данных каталога в скриптах`);
+  
+  const scripts = document.querySelectorAll('script');
+  for (const script of scripts) {
+    try {
+      const content = script.textContent;
+      
+      // Ищем различные паттерны данных
+      if (content.includes('catalog') && content.includes('items')) {
+        // Пробуем найти JSON данные
+        const jsonMatch = content.match(/\{.*"catalog".*"items".*\}/s);
+        if (jsonMatch) {
+          try {
+            const data = JSON.parse(jsonMatch[0]);
+            if (data.catalog && data.catalog.items) {
+              console.log(`${logPrefix} Найдены данные каталога в скрипте`);
+              return getCatalogDataFromInit({ data });
+            }
+          } catch (e) {
+            // Игнорируем ошибки парсинга
+          }
+        }
+      }
+    } catch (error) {
+      // Игнорируем ошибки
+    }
+  }
+  
+  return [];
 }
 
 function decodeHtmlEntities(str) {
@@ -770,6 +1143,16 @@ async function main() {
   else {
     console.log(`${logPrefix} страница определена: поиск`);
     await initPagination();
+    
+    // Пробуем получить данные каталога альтернативным способом при загрузке
+    if (!catalogData || catalogData.length === 0) {
+      console.log(`${logPrefix} Пробуем получить данные каталога при инициализации`);
+      catalogData = getCatalogDataAlternative();
+      if (catalogData && catalogData.length > 0) {
+        console.log(`${logPrefix} Данные каталога получены при инициализации:`, catalogData);
+        processSearchPage();
+      }
+    }
   }
 
   const target = document;
@@ -831,9 +1214,27 @@ async function main() {
                 const initialData = JSON.parse(decodedJson);
                 catalogData = getCatalogDataFromInit(initialData);
                 console.log(`${logPrefix} catalogData получен`, catalogData);
-                processSearchPage();
+                if (catalogData && catalogData.length > 0) {
+                  processSearchPage();
+                } else {
+                  console.warn(`${logPrefix} catalogData пуст или не найден, пробуем альтернативные способы`);
+                  catalogData = getCatalogDataAlternative();
+                  if (catalogData && catalogData.length > 0) {
+                    console.log(`${logPrefix} Данные получены альтернативным способом:`, catalogData);
+                    processSearchPage();
+                  } else {
+                    console.warn(`${logPrefix} Не удалось получить данные каталога никаким способом`);
+                  }
+                }
               } catch (error) {
                 console.error("Error processing catalog data:", error);
+                // Если основной способ не сработал, пробуем альтернативные
+                console.log(`${logPrefix} Пробуем альтернативные способы получения данных`);
+                catalogData = getCatalogDataAlternative();
+                if (catalogData && catalogData.length > 0) {
+                  console.log(`${logPrefix} Данные получены альтернативным способом после ошибки:`, catalogData);
+                  processSearchPage();
+                }
               }
             }
           }

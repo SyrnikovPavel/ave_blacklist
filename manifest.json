@@ -1,7 +1,7 @@
 {
   "name": "Ave Blacklist",
   "description": "Расширение для блокировки пользователей и объявлений на Авито (Avito)",
-  "version": "1.0.8.4",
+  "version": "1.0.9.1",
   "manifest_version": 3,
   "permissions": ["storage", "downloads"],
   "content_scripts": [
@@ -18,8 +18,7 @@
     "default_icon": "images/icon32.png"
   },
   "background": {
-    "service_worker": "background.js", // chrome
-    "scripts": ["background.js"] // FF
+    "service_worker": "background.js"
   },
   "icons": {
     "16": "images/icon16.png",
