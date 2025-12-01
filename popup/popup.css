@@ -48,7 +48,7 @@ h1 {
 
 .operations-grid {
   display: grid;
-  grid-template-row: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-rows: repeat(auto-fit, minmax(100px, 1fr));
   gap: 10px;
 }
 
@@ -104,10 +104,18 @@ input[type="file"] {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  margin-bottom: 12px;
+}
+
+.compact-toggle:last-child {
+  margin-bottom: 0;
 }
 
 .compact-toggle h2 {
-  margin-bottom: 0; /* Remove bottom margin to align better */
+  margin: 0;
+  flex: 1;
+  font-size: 1em;
+  font-weight: normal;
 }
 
 /* The switch - the box around the slider */
@@ -116,6 +124,7 @@ input[type="file"] {
   display: inline-block;
   width: 50px;
   height: 24px;
+  flex-shrink: 0;
 }
 
 /* Hide default HTML checkbox */

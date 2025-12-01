@@ -4,11 +4,18 @@ if (typeof browser === "undefined") {
 }
 
 const autoPaginationToggle = document.getElementById("autoPaginationToggle");
+const cityFilterToggle = document.getElementById("cityFilterToggle");
 
 // Load auto-pagination state
 browser.storage.local.get(["isPaginationEnabled"], function (result) {
   const isEnabled = result.isPaginationEnabled !== false; // default to true
   autoPaginationToggle.checked = isEnabled;
+});
+
+// Load city filter state
+browser.storage.local.get(["isCityFilterEnabled"], function (result) {
+  const isEnabled = result.isCityFilterEnabled || false; // default to false
+  cityFilterToggle.checked = isEnabled;
 });
 
 // Save auto-pagination state when toggled
@@ -20,6 +27,20 @@ autoPaginationToggle.addEventListener("change", function () {
   browser.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     browser.tabs.sendMessage(tabs[0].id, {
       action: "updatePaginationState",
+      isEnabled: isEnabled,
+    });
+  });
+});
+
+// Save city filter state when toggled
+cityFilterToggle.addEventListener("change", function () {
+  const isEnabled = this.checked;
+  browser.storage.local.set({ isCityFilterEnabled: isEnabled });
+
+  // Send message to content script to update the state
+  browser.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    browser.tabs.sendMessage(tabs[0].id, {
+      action: "updateCityFilterState",
       isEnabled: isEnabled,
     });
   });

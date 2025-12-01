@@ -54,3 +54,79 @@
 .index-root-gtkvj {
   min-height: 0px !important;
 }
+
+/* ==================== ITEM PAGE BUTTONS ==================== */
+
+.item-page-blacklist-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.item-page-block-btn,
+.item-page-unblock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.item-page-block-btn {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.item-page-block-btn:hover {
+  background-color: #ffcdd2;
+}
+
+.item-page-block-btn:active {
+  transform: scale(0.98);
+  background-color: #ef9a9a;
+}
+
+.item-page-unblock-btn {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.item-page-unblock-btn:hover {
+  background-color: #c8e6c9;
+}
+
+.item-page-unblock-btn:active {
+  transform: scale(0.98);
+  background-color: #a5d6a7;
+}
+
+.item-page-btn-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-page-btn-text {
+  white-space: nowrap;
+}
+
+/* ==================== PROFILE PAGE BUTTONS ==================== */
+
+.profile-page-blacklist-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+}

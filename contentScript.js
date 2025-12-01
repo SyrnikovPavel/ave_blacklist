@@ -5,6 +5,247 @@ const logPrefix = "[ave]";
 
 const sellerPageSidebarSelector = `[class^="ExtendedProfileStickyContainer-"]`;
 
+// Селекторы для раздела рекомендаций на главной странице
+const recommendationsItemSelector = '[class*="js-item-"]';
+const recommendationsCardSelector = '[data-marker="bx-recommendations-block-item"]';
+
+// Определение главной страницы
+function isHomePage() {
+  const pathname = window.location.pathname;
+  return pathname === '/' || pathname === '';
+}
+
+// ==================== USER PROFILE PAGE FUNCTIONALITY ====================
+
+// Определение страницы профиля пользователя
+function isUserProfilePage() {
+  const pathname = window.location.pathname;
+  return pathname.includes('/user/') || pathname.includes('/brands/');
+}
+
+// Извлечение ID продавца из URL профиля
+function getSellerIdFromUrl() {
+  const pathname = window.location.pathname;
+  const userMatch = pathname.match(/\/user\/([^\/]+)/);
+  const brandMatch = pathname.match(/\/brands\/([^\/]+)/);
+  
+  if (userMatch) return userMatch[1].split('?')[0];
+  if (brandMatch) return brandMatch[1].split('?')[0];
+  return null;
+}
+
+// ==================== ITEM PAGE FUNCTIONALITY ====================
+
+// Определение страницы товара (item page)
+// URL паттерн: /город/категория/название_ID или /город/категория/подкатегория/название_ID
+function isItemPage() {
+  const pathname = window.location.pathname;
+  // Исключаем служебные страницы
+  const excludedPaths = ['user', 'brands', 'companies', 'shops', 'profile', 'favorites', 'messages', 'search'];
+  const pathParts = pathname.split('/').filter(part => part !== '');
+  
+  // Минимум 3 части: город, категория, название_id
+  if (pathParts.length < 3) return false;
+  
+  // Первая часть не должна быть служебной
+  if (excludedPaths.includes(pathParts[0])) return false;
+  
+  // Последняя часть должна содержать ID (заканчиваться на _цифры или просто цифры)
+  const lastPart = pathParts[pathParts.length - 1];
+  return /[_]\d+$/.test(lastPart) || /^\d+$/.test(lastPart);
+}
+
+// Извлечение ID объявления из URL страницы товара
+function getItemPageOfferId() {
+  const pathname = window.location.pathname;
+  // Ищем ID в конце URL (после последнего _ или как отдельное число)
+  const match = pathname.match(/_(\d+)(?:\?|$|#)/) || pathname.match(/\/(\d+)(?:\?|$|#)/);
+  if (match) {
+    return match[1];
+  }
+  // Альтернативный способ - из конца pathname
+  const parts = pathname.split('/').filter(p => p);
+  if (parts.length > 0) {
+    const lastPart = parts[parts.length - 1].split('?')[0];
+    const idMatch = lastPart.match(/_(\d+)$/) || lastPart.match(/^(\d+)$/);
+    if (idMatch) {
+      return idMatch[1];
+    }
+  }
+  return null;
+}
+
+// Извлечение ID продавца из DOM на странице товара
+function getItemPageSellerId() {
+  // Ищем ссылку на продавца
+  const sellerLink = document.querySelector('a[data-marker="seller-link/link"]');
+  if (sellerLink) {
+    const href = sellerLink.href;
+    // Поддерживаем /user/ и /brands/
+    const userMatch = href.match(/\/user\/([^\/\?]+)/);
+    const brandMatch = href.match(/\/brands\/([^\/\?]+)/);
+    
+    if (userMatch) {
+      return userMatch[1];
+    } else if (brandMatch) {
+      return brandMatch[1];
+    }
+  }
+  return null;
+}
+
+// Проверка наличия кнопок на странице товара
+function hasItemPageButtons() {
+  return document.querySelector('.item-page-blacklist-container') !== null;
+}
+
+// Создание кнопки в стиле Avito
+function createItemPageButton(text, isBlock, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = isBlock ? 'item-page-block-btn' : 'item-page-unblock-btn';
+  button.innerHTML = `<span class="item-page-btn-wrapper"><span class="item-page-btn-text">${text}</span></span>`;
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onClick();
+  });
+  return button;
+}
+
+// Вставка кнопок на страницу товара
+function insertItemPageButtons(offerId, sellerId) {
+  // Проверяем, не добавлены ли уже кнопки
+  if (hasItemPageButtons()) {
+    // Обновляем существующие кнопки
+    updateItemPageButtons(offerId, sellerId);
+    return;
+  }
+
+  // Ищем контейнер с кнопками "Показать телефон" и "Написать"
+  const contactBar = document.querySelector('[class*="contact-bar__root"]') || 
+                     document.querySelector('[class*="style__contactBarOnly"]');
+  
+  if (!contactBar) {
+    console.log(`${logPrefix} Контейнер contact-bar не найден на странице товара`);
+    return;
+  }
+
+  // Создаем контейнер для наших кнопок
+  const container = document.createElement('div');
+  container.className = 'item-page-blacklist-container';
+
+  // Проверяем состояние в блеклисте
+  const userIsBlacklisted = sellerId && blacklistUsers.includes(sellerId + "_blacklist_user");
+  const offerIsBlacklisted = offerId && blacklistOffers.includes(offerId + "_blacklist_ad");
+
+  // Кнопка для продавца
+  if (sellerId) {
+    const sellerButton = createItemPageButton(
+      userIsBlacklisted ? 'Разблокировать продавца' : 'Заблокировать продавца',
+      !userIsBlacklisted,
+      () => {
+        if (userIsBlacklisted) {
+          removeUserFromBlacklist(sellerId);
+        } else {
+          addUserToBlacklist(sellerId);
+        }
+        updateItemPageButtons(offerId, sellerId);
+      }
+    );
+    container.appendChild(sellerButton);
+  }
+
+  // Кнопка для объявления
+  if (offerId) {
+    const offerButton = createItemPageButton(
+      offerIsBlacklisted ? 'Разблокировать объявление' : 'Заблокировать объявление',
+      !offerIsBlacklisted,
+      () => {
+        if (offerIsBlacklisted) {
+          removeOfferFromBlacklist(offerId);
+        } else {
+          addOfferToBlacklist(offerId);
+        }
+        updateItemPageButtons(offerId, sellerId);
+      }
+    );
+    container.appendChild(offerButton);
+  }
+
+  // Вставляем контейнер после основных кнопок
+  contactBar.appendChild(container);
+  console.log(`${logPrefix} Кнопки блокировки добавлены на страницу товара`);
+}
+
+// Обновление кнопок на странице товара
+function updateItemPageButtons(offerId, sellerId) {
+  const container = document.querySelector('.item-page-blacklist-container');
+  if (!container) return;
+
+  // Удаляем старые кнопки
+  container.innerHTML = '';
+
+  // Проверяем состояние в блеклисте
+  const userIsBlacklisted = sellerId && blacklistUsers.includes(sellerId + "_blacklist_user");
+  const offerIsBlacklisted = offerId && blacklistOffers.includes(offerId + "_blacklist_ad");
+
+  // Кнопка для продавца
+  if (sellerId) {
+    const sellerButton = createItemPageButton(
+      userIsBlacklisted ? 'Разблокировать продавца' : 'Заблокировать продавца',
+      !userIsBlacklisted,
+      () => {
+        if (userIsBlacklisted) {
+          removeUserFromBlacklist(sellerId);
+        } else {
+          addUserToBlacklist(sellerId);
+        }
+        updateItemPageButtons(offerId, sellerId);
+      }
+    );
+    container.appendChild(sellerButton);
+  }
+
+  // Кнопка для объявления
+  if (offerId) {
+    const offerButton = createItemPageButton(
+      offerIsBlacklisted ? 'Разблокировать объявление' : 'Заблокировать объявление',
+      !offerIsBlacklisted,
+      () => {
+        if (offerIsBlacklisted) {
+          removeOfferFromBlacklist(offerId);
+        } else {
+          addOfferToBlacklist(offerId);
+        }
+        updateItemPageButtons(offerId, sellerId);
+      }
+    );
+    container.appendChild(offerButton);
+  }
+}
+
+// Основная функция обработки страницы товара
+function processItemPage() {
+  if (!isItemPage()) return;
+
+  const offerId = getItemPageOfferId();
+  const sellerId = getItemPageSellerId();
+
+  console.log(`${logPrefix} Страница товара: offerId=${offerId}, sellerId=${sellerId}`);
+
+  if (offerId || sellerId) {
+    insertItemPageButtons(offerId, sellerId);
+  }
+}
+
+// Извлечение ID объявления из класса элемента рекомендаций (js-item-XXXXXXX)
+function getRecommendationOfferId(element) {
+  const classList = element.className;
+  const match = classList.match(/js-item-(\d+)/);
+  return match ? match[1] : null;
+}
+
 // browser compatibility
 if (typeof browser === "undefined") {
   var browser = chrome;
@@ -448,6 +689,175 @@ async function initPagination() {
   initPaginationObserver();
 }
 
+// ==================== CITY FILTER FUNCTIONALITY ====================
+
+// Служебные пути Avito, которые не являются городами
+const EXCLUDED_URL_PATHS = ['user', 'brands', 'companies', 'shops', 'profile', 'favorites', 'messages'];
+
+// CSS класс Avito для визуального состояния "включено" у переключателя
+// Примечание: класс содержит хеш, который может измениться при обновлении Avito
+const TOGGLE_CHECKED_CLASS = 'styles-module-controlledInput_checked-fJhQQ';
+
+// Извлечение города из URL (общая функция)
+function extractCityFromUrl(url) {
+  if (!url) return null;
+  const match = url.match(/avito\.ru\/([a-z_]+)/i);
+  if (match && match[1]) {
+    const path = match[1].toLowerCase();
+    if (!EXCLUDED_URL_PATHS.includes(path)) {
+      return path;
+    }
+  }
+  return null;
+}
+
+// Извлечение города из URL страницы
+function getCityFromPageUrl() {
+  return extractCityFromUrl(window.location.href);
+}
+
+// Извлечение города из URL объявления
+function getCityFromOfferUrl(url) {
+  return extractCityFromUrl(url);
+}
+
+// Получение URL объявления из DOM элемента
+function getOfferUrl(offerElement) {
+  // Ищем ссылку на объявление в элементе
+  const titleLink = offerElement.querySelector('[data-marker="item-title"]');
+  if (titleLink && titleLink.href) {
+    return titleLink.href;
+  }
+  // Альтернативный поиск ссылки
+  const anyLink = offerElement.querySelector('a[href*="/"]');
+  if (anyLink && anyLink.href && anyLink.href.includes('avito.ru/')) {
+    return anyLink.href;
+  }
+  return null;
+}
+
+// Получение читаемого названия города из UI (из элемента "Сначала из Тюмени")
+function getCityDisplayName() {
+  const localPriorityLabel = document.querySelector('.filters-switcherLabel-vbkFI');
+  if (localPriorityLabel) {
+    const text = localPriorityLabel.textContent;
+    // Извлекаем название города из "Сначала из Тюмени" -> "Тюмени"
+    const match = text.match(/Сначала из (.+)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  // Fallback: используем город из URL
+  const cityLat = getCityFromPageUrl();
+  return cityLat || 'города';
+}
+
+// Проверка, принадлежит ли объявление текущему городу
+function isOfferFromCurrentCity(offerElement) {
+  const currentCity = getCityFromPageUrl();
+  if (!currentCity) return true; // Если не можем определить город, не фильтруем
+  
+  const offerUrl = getOfferUrl(offerElement);
+  if (!offerUrl) return true; // Если нет URL, не фильтруем
+  
+  const offerCity = getCityFromOfferUrl(offerUrl);
+  if (!offerCity) return true; // Если не можем определить город объявления, не фильтруем
+  
+  return offerCity === currentCity;
+}
+
+// Установка визуального состояния переключателя (checkbox + label)
+function setToggleVisualState(checkbox, label, isEnabled) {
+  if (checkbox) {
+    checkbox.checked = isEnabled;
+    checkbox.classList.toggle(TOGGLE_CHECKED_CLASS, isEnabled);
+  }
+  if (label) {
+    label.setAttribute('aria-checked', isEnabled ? 'true' : 'false');
+  }
+}
+
+// Обновление визуального состояния переключателя города
+function updateCityFilterToggleState() {
+  const label = document.querySelector('[data-marker="filters/cityOnly"]');
+  if (!label) return;
+  
+  const checkbox = label.querySelector('input[type="checkbox"]');
+  setToggleVisualState(checkbox, label, cityFilterEnabled);
+}
+
+// Создание UI переключателя "Только из [город]"
+function insertCityFilterToggle() {
+  // Проверяем, не добавлен ли уже переключатель
+  const existingToggle = document.querySelector('[data-marker="filters/cityOnly"]');
+  if (existingToggle) {
+    // Обновляем состояние существующего переключателя
+    updateCityFilterToggleState();
+    return;
+  }
+
+  // Ищем панель с переключателем "Сначала из..."
+  const topPanel = document.querySelector('[class*="index-topPanel-"]');
+  if (!topPanel) {
+    console.log(`${logPrefix} Верхняя панель не найдена для вставки переключателя города`);
+    return;
+  }
+
+  // Ищем существующий переключатель "Сначала из..." для копирования структуры
+  const existingToggleContainer = topPanel.querySelector('[data-marker="filters/localPriority/localPriority"]');
+  if (!existingToggleContainer) {
+    console.log(`${logPrefix} Существующий переключатель не найден`);
+    return;
+  }
+
+  const cityName = getCityDisplayName();
+  
+  // Клонируем родительский контейнер переключателя
+  const parentContainer = existingToggleContainer.closest('.styles-module-theme-CW0hC');
+  if (!parentContainer) {
+    console.log(`${logPrefix} Родительский контейнер не найден`);
+    return;
+  }
+
+  const newContainer = parentContainer.cloneNode(true);
+  
+  // Настраиваем label
+  const newLabel = newContainer.querySelector('label');
+  if (newLabel) {
+    newLabel.setAttribute('data-marker', 'filters/cityOnly');
+  }
+  
+  // Изменяем текст
+  const labelText = newContainer.querySelector('.filters-switcherLabel-vbkFI');
+  if (labelText) {
+    labelText.textContent = `Только из ${cityName}`;
+  }
+
+  // Настраиваем checkbox
+  const checkbox = newContainer.querySelector('input[type="checkbox"]');
+  if (checkbox) {
+    checkbox.name = 'cityOnly';
+    checkbox.value = 'cityOnly';
+    checkbox.setAttribute('data-marker', 'filters/cityOnly/toggle');
+    
+    // Устанавливаем начальное визуальное состояние
+    setToggleVisualState(checkbox, newLabel, cityFilterEnabled);
+    
+    // Обработчик изменения checkbox
+    checkbox.addEventListener('change', function() {
+      cityFilterEnabled = this.checked;
+      setToggleVisualState(this, newLabel, cityFilterEnabled);
+      browser.storage.local.set({ isCityFilterEnabled: cityFilterEnabled });
+      console.log(`${logPrefix} Фильтр по городу: ${cityFilterEnabled ? 'включен' : 'выключен'}`);
+      processSearchPage();
+    });
+  }
+
+  // Вставляем новый переключатель после существующего
+  parentContainer.after(newContainer);
+  console.log(`${logPrefix} Переключатель "Только из ${cityName}" добавлен`);
+}
+
 // ==================== MAIN FUNCTIONALITY ====================
 
 function getSellerId(initialData) {
@@ -680,8 +1090,15 @@ function updateOfferState(offerElement, offerInfo) {
   const offerIsHidden = hiddenContainer.contains(offerElement);
   const userIsBlacklisted = offerInfo?.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
   const offerIsBlacklisted = offerInfo?.offerId && blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
+  
+  // Проверка фильтра по городу
+  const isFromCurrentCity = isOfferFromCurrentCity(offerElement);
+  const shouldHideByCity = cityFilterEnabled && !isFromCurrentCity;
 
-  if (!offerIsHidden && (userIsBlacklisted || offerIsBlacklisted)) {
+  // Определяем, нужно ли скрыть объявление
+  const shouldHide = userIsBlacklisted || offerIsBlacklisted || shouldHideByCity;
+
+  if (!offerIsHidden && shouldHide) {
     // клонируем оригинальное объявление
     const offerElementClone = offerElement.cloneNode(true);
     // прячем оригинальное объявление
@@ -690,16 +1107,25 @@ function updateOfferState(offerElement, offerInfo) {
     hiddenContainer.appendChild(offerElementClone);
     // переназначаем клон как offerElement, чтоб добавить к нему кнопки позже
     offerElement = offerElementClone;
-    console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
-  } else if (offerIsHidden && !userIsBlacklisted && !offerIsBlacklisted) {
+    if (shouldHideByCity && !userIsBlacklisted && !offerIsBlacklisted) {
+      console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто (другой город)`);
+    } else {
+      console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
+    }
+  } else if (offerIsHidden && !shouldHide) {
     // удаляем объявление из скрытых
     offerElement.remove();
     // находим оригинальное "скрытое" объявление
     // переназначаем offerElement, чтоб добавить к нему кнопки позже
     offerElement = document.querySelector(`[data-item-id="${offerInfo.offerId}"]`);
     // показываем его
-    offerElement.style.display = "block";
+    if (offerElement) {
+      offerElement.style.display = "block";
+    }
   }
+
+  // Если элемент не найден (уже удален), выходим
+  if (!offerElement) return;
 
   // добавляем контейнер с кнопками
   const buttonContainer = offerElement.querySelector(".button-container");
@@ -761,52 +1187,251 @@ function processSearchPage() {
   }
 }
 
-function checkButton() {
-  const texts = ["Скрыть пользователя", "Показать пользователя"];
-  const button = Array.from(document.querySelectorAll("button")).find((btn) => texts.includes(btn.textContent.trim()));
-  return button !== undefined;
-}
+// ==================== RECOMMENDATIONS PAGE FUNCTIONALITY ====================
 
-function insertBlockedSellerUI(userId) {
-  if (!checkButton()) {
-    const sidebar = document.querySelector(sellerPageSidebarSelector);
-    const unblockButtonHtml =
-      '<button type="button" class="sellerPageControlButton removeSellerFromBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Показать пользователя</span></span></button>';
-    const badgeHtml =
-      '<div class="ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge" style="--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181" data-marker="badge-102">❌ Пользователь в ЧС</div><div class="ProfileBadge-content-o2hDn"><div class="ProfileBadge-title-_Z4By" data-marker="badge-title-102"></div><div class="ProfileBadge-description-_lbMb" data-marker="badge-description-102"></div></div>';
-    const firstBadge = sidebar.querySelector(`[class^="ProfileBadge-"]`);
-    const badge_bar = firstBadge.parentElement;
-    badge_bar.insertAdjacentHTML("beforeend", badgeHtml);
-    sidebar.insertAdjacentHTML("beforeend", unblockButtonHtml);
+// Флаг для предотвращения повторной обработки
+let isProcessingRecommendations = false;
+let recommendationsDebounceTimeout = null;
 
-    const actionButton = sidebar.querySelector(".removeSellerFromBlacklist");
+function insertRecommendationButtons(offerElement, offerId) {
+  // Проверяем, не добавлены ли уже кнопки
+  if (offerElement.querySelector(".recommendation-button-container")) return;
 
-    // убрать пользователя из ЧС
-    actionButton.addEventListener("click", () => {
-      removeUserFromBlacklist(userId);
-      sidebar.querySelector(".bad_badge").remove();
-      actionButton.remove();
-      insertSellerUI(userId);
-    });
+  // Создаем контейнер для кнопки
+  const buttonContainer = document.createElement("div");
+  buttonContainer.classList.add("recommendation-button-container");
+  buttonContainer.style.cssText = `
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    display: flex;
+    gap: 4px;
+  `;
+
+  // Устанавливаем position: relative для родителя, если ещё не установлено
+  const cardElement = offerElement.querySelector(recommendationsCardSelector) || offerElement;
+  if (cardElement && getComputedStyle(cardElement).position === 'static') {
+    cardElement.style.position = 'relative';
+  }
+
+  // Кнопка блокировки
+  const blockButton = document.createElement("div");
+  blockButton.title = "Скрыть это объявление";
+  blockButton.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" class="custom-button block block-item-button" role="img" aria-label="eye x" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
+      <path d="M13.048 17.942a9.298 9.298 0 0 1 -1.048 .058c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6a17.986 17.986 0 0 1 -1.362 1.975"></path>
+      <path d="M22 22l-5 -5"></path>
+      <path d="M17 22l5 -5"></path>
+    </svg>`;
+  blockButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    addOfferToBlacklist(offerId);
+    // Просто удаляем элемент со страницы
+    offerElement.remove();
+    console.log(`${logPrefix} рекомендация ${offerId} скрыта и удалена`);
+  });
+  buttonContainer.appendChild(blockButton);
+
+  // Вставляем кнопки в карточку
+  if (cardElement) {
+    cardElement.appendChild(buttonContainer);
+  } else {
+    offerElement.appendChild(buttonContainer);
   }
 }
 
+function processRecommendationsPage() {
+  if (!isHomePage()) return;
+  
+  // Защита от повторного вызова
+  if (isProcessingRecommendations) return;
+  isProcessingRecommendations = true;
+
+  console.log(`${logPrefix} Обработка раздела рекомендаций`);
+  
+  // Находим все элементы рекомендаций по классу js-item-XXXXXXX
+  const recommendationElements = document.querySelectorAll(recommendationsItemSelector);
+  
+  let processedCount = 0;
+  let hiddenCount = 0;
+  
+  for (const element of recommendationElements) {
+    // Пропускаем уже обработанные элементы
+    if (element.hasAttribute("data-recommendation-processed")) continue;
+    
+    const offerId = getRecommendationOfferId(element);
+    if (offerId) {
+      const offerIsBlacklisted = blacklistOffers.includes(offerId + "_blacklist_ad");
+      
+      if (offerIsBlacklisted) {
+        // Удаляем заблокированное объявление со страницы
+        element.remove();
+        hiddenCount++;
+        console.log(`${logPrefix} рекомендация ${offerId} удалена (в блеклисте)`);
+      } else {
+        // Добавляем кнопку блокировки
+        insertRecommendationButtons(element, offerId);
+        element.setAttribute("data-recommendation-processed", "true");
+        processedCount++;
+      }
+    }
+  }
+  
+  console.log(`${logPrefix} Обработано ${processedCount} рекомендаций, скрыто ${hiddenCount}`);
+  
+  // Сбрасываем флаг через небольшую задержку
+  setTimeout(() => {
+    isProcessingRecommendations = false;
+  }, 100);
+}
+
+// Проверка наличия кнопок блокировки на странице профиля
+function hasProfilePageButtons() {
+  return document.querySelector('.profile-page-blacklist-container') !== null;
+}
+
+// Поиск контейнера для вставки кнопок на странице профиля
+function findProfileButtonsInsertPoint() {
+  const sidebar = document.querySelector(sellerPageSidebarSelector);
+  if (!sidebar) return null;
+  
+  // Ищем блок с кнопкой "Подписаться"
+  const subscribeBlock = sidebar.querySelector('[class*="SubscribeInfo-module-subscribe"]');
+  if (subscribeBlock) {
+    return subscribeBlock.parentElement;
+  }
+  
+  // Ищем блок с кнопками контактов (Написать, Показать телефон)
+  const contactBar = sidebar.querySelector('[class*="ContactBar-module-controls"]');
+  if (contactBar) {
+    return contactBar.parentElement;
+  }
+  
+  // Fallback: вставляем в конец sidebar
+  return sidebar;
+}
+
+// Создание контейнера для кнопок на странице профиля
+function createProfileButtonsContainer() {
+  const container = document.createElement('div');
+  container.className = 'profile-page-blacklist-container';
+  return container;
+}
+
+// Создание кнопки блокировки/разблокировки для страницы профиля
+function createProfilePageButton(text, isBlock, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = isBlock ? 'item-page-block-btn' : 'item-page-unblock-btn';
+  button.innerHTML = `<span class="item-page-btn-wrapper"><span class="item-page-btn-text">${text}</span></span>`;
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onClick();
+  });
+  return button;
+}
+
+function insertBlockedSellerUI(userId) {
+  if (hasProfilePageButtons()) {
+    // Обновляем существующие кнопки
+    updateProfilePageButtons(userId);
+    return;
+  }
+
+  const insertPoint = findProfileButtonsInsertPoint();
+  if (!insertPoint) {
+    console.log(`${logPrefix} Точка вставки кнопок не найдена на странице профиля`);
+    return;
+  }
+
+  // Создаем контейнер
+  const container = createProfileButtonsContainer();
+
+  // Добавляем бейдж "В черном списке"
+  const sidebar = document.querySelector(sellerPageSidebarSelector);
+  const firstBadge = sidebar?.querySelector(`[class^="ProfileBadge-"]`);
+  if (firstBadge) {
+    const badgeBar = firstBadge.parentElement;
+    const badgeHtml = '<div class="ProfileBadge-root-bcR8G ProfileBadge-cloud-vOPD1 ProfileBadge-activatable-_4_K8 bad_badge" style="--badge-font-color:#000000;--badge-bgcolor:#f8cbcb;--badge-hover-bgcolor:#fd8181" data-marker="badge-blacklisted">❌ Пользователь в ЧС</div>';
+    badgeBar.insertAdjacentHTML("beforeend", badgeHtml);
+  }
+
+  // Создаем кнопку разблокировки
+  const unblockButton = createProfilePageButton('Разблокировать продавца', false, () => {
+    removeUserFromBlacklist(userId);
+    // Удаляем бейдж
+    const badge = sidebar?.querySelector('.bad_badge');
+    if (badge) badge.remove();
+    // Удаляем контейнер с кнопками
+    container.remove();
+    // Вставляем кнопку блокировки
+    insertSellerUI(userId);
+  });
+  
+  container.appendChild(unblockButton);
+  insertPoint.appendChild(container);
+  console.log(`${logPrefix} Кнопка разблокировки добавлена на страницу профиля`);
+}
+
 function insertSellerUI(userId) {
-  if (!checkButton()) {
-    const sidebar = document.querySelector(sellerPageSidebarSelector);
-    const blockButtonHtml =
-      '<button type="button" class="sellerPageControlButton addSellerToBlacklist styles-module-root-EEwdX styles-module-root_size_m-Joz68 styles-module-root_preset_secondary-_ysdV styles-module-root_fullWidth-jnoCY"><span class="styles-module-wrapper-_6mED"><span class="styles-module-text-G2ghF styles-module-text_size_m-DUDcO">Скрыть пользователя</span></span></button>';
+  if (hasProfilePageButtons()) {
+    // Обновляем существующие кнопки
+    updateProfilePageButtons(userId);
+    return;
+  }
 
-    sidebar.insertAdjacentHTML("beforeend", blockButtonHtml);
+  const insertPoint = findProfileButtonsInsertPoint();
+  if (!insertPoint) {
+    console.log(`${logPrefix} Точка вставки кнопок не найдена на странице профиля`);
+    return;
+  }
 
-    const actionButton = sidebar.querySelector(".addSellerToBlacklist");
+  // Создаем контейнер
+  const container = createProfileButtonsContainer();
 
-    // добавить пользователя в ЧС
-    actionButton.addEventListener("click", () => {
-      addUserToBlacklist(userId);
-      actionButton.remove();
-      insertBlockedSellerUI(userId);
+  // Создаем кнопку блокировки
+  const blockButton = createProfilePageButton('Заблокировать продавца', true, () => {
+    addUserToBlacklist(userId);
+    // Удаляем контейнер с кнопками
+    container.remove();
+    // Вставляем кнопку разблокировки
+    insertBlockedSellerUI(userId);
+  });
+  
+  container.appendChild(blockButton);
+  insertPoint.appendChild(container);
+  console.log(`${logPrefix} Кнопка блокировки добавлена на страницу профиля`);
+}
+
+// Обновление кнопок на странице профиля
+function updateProfilePageButtons(userId) {
+  const container = document.querySelector('.profile-page-blacklist-container');
+  if (!container) return;
+
+  const userIsBlacklisted = blacklistUsers.includes(userId + "_blacklist_user");
+  
+  // Удаляем старые кнопки
+  container.innerHTML = '';
+
+  if (userIsBlacklisted) {
+    const unblockButton = createProfilePageButton('Разблокировать продавца', false, () => {
+      removeUserFromBlacklist(userId);
+      const sidebar = document.querySelector(sellerPageSidebarSelector);
+      const badge = sidebar?.querySelector('.bad_badge');
+      if (badge) badge.remove();
+      updateProfilePageButtons(userId);
     });
+    container.appendChild(unblockButton);
+  } else {
+    const blockButton = createProfilePageButton('Заблокировать продавца', true, () => {
+      addUserToBlacklist(userId);
+      updateProfilePageButtons(userId);
+    });
+    container.appendChild(blockButton);
   }
 }
 
@@ -1139,10 +1764,37 @@ async function main() {
   const currentUrl = window.location.toString();
   const userPageStrings = ["www.avito.ru/user/", "sellerId", "brands"];
   const isUserPage = userPageStrings.some((str) => currentUrl.includes(str));
-  if (isUserPage) console.log(`${logPrefix} страница определена: продавец`);
-  else {
+  const isHomePageFlag = isHomePage();
+  const isItemPageFlag = isItemPage();
+  
+  if (isUserPage) {
+    console.log(`${logPrefix} страница определена: продавец`);
+    // Отложенная обработка страницы продавца после загрузки DOM
+    // Используем ID из URL напрямую, не дожидаясь __initialData__
+    const sellerIdFromUrl = getSellerIdFromUrl();
+    if (sellerIdFromUrl) {
+      setTimeout(() => {
+        processSellerPage(sellerIdFromUrl);
+      }, 500);
+    }
+  } else if (isItemPageFlag) {
+    console.log(`${logPrefix} страница определена: товар`);
+    // Отложенная обработка страницы товара после загрузки DOM
+    setTimeout(() => {
+      processItemPage();
+    }, 500);
+  } else if (isHomePageFlag) {
+    console.log(`${logPrefix} страница определена: главная (рекомендации)`);
+    // Отложенная обработка рекомендаций после загрузки DOM
+    setTimeout(() => {
+      processRecommendationsPage();
+    }, 500);
+  } else {
     console.log(`${logPrefix} страница определена: поиск`);
     await initPagination();
+    
+    // Добавляем переключатель фильтра по городу
+    insertCityFilterToggle();
     
     // Пробуем получить данные каталога альтернативным способом при загрузке
     if (!catalogData || catalogData.length === 0) {
@@ -1178,29 +1830,101 @@ async function main() {
                 ) &&
                 node.querySelector(`[class^="ProfileBadge-root-"]`))
             ) {
-              console.log(`${logPrefix} страница продваца обновлена`);
-              if (!initialData) return;
-              let userId = getSellerId(initialData);
-              processSellerPage(userId);
+              console.log(`${logPrefix} страница продавца обновлена`);
+              // Используем ID из URL как основной источник, initialData как fallback
+              let userId = getSellerIdFromUrl();
+              if (!userId && initialData) {
+                userId = getSellerId(initialData);
+              }
+              if (userId) {
+                processSellerPage(userId);
+              }
             }
             if (node?.nodeName === "SCRIPT" && node?.textContent?.includes("__initialData__")) {
               const initialDataContent = node.textContent;
               initialData = parseInitialData(initialDataContent);
               console.log(`${logPrefix} initialData найден`, initialData);
-              let userId = getSellerId(initialData);
-              processSellerPage(userId);
+              // Используем ID из URL как основной источник
+              let userId = getSellerIdFromUrl();
+              if (!userId) {
+                userId = getSellerId(initialData);
+              }
+              if (userId) {
+                processSellerPage(userId);
+              }
+            }
+            // Обработка появления sidebar с кнопками
+            if (node instanceof Element) {
+              const hasSidebar = node.querySelector && (
+                node.querySelector(sellerPageSidebarSelector) ||
+                node.querySelector('[class*="SubscribeInfo-module-subscribe"]') ||
+                node.querySelector('[class*="ContactBar-module-controls"]')
+              );
+              if (hasSidebar) {
+                console.log(`${logPrefix} обнаружен sidebar на странице продавца`);
+                const userId = getSellerIdFromUrl();
+                if (userId) {
+                  processSellerPage(userId);
+                }
+              }
+            }
+          } else if (isItemPageFlag) {
+            // страница товара
+            if (node instanceof Element) {
+              // Проверяем, появился ли контейнер с кнопками контактов
+              const hasContactBar = node.querySelector && (
+                node.querySelector('[class*="contact-bar__root"]') ||
+                node.querySelector('[class*="style__contactBarOnly"]') ||
+                node.classList?.toString().includes('contact-bar')
+              );
+              // Или появилась информация о продавце
+              const hasSellerInfo = node.querySelector && (
+                node.querySelector('[data-marker="seller-link/link"]') ||
+                node.querySelector('[data-marker="seller-info/name"]')
+              );
+              if (hasContactBar || hasSellerInfo) {
+                console.log(`${logPrefix} обнаружен контейнер контактов или информация о продавце`);
+                processItemPage();
+              }
+            }
+          } else if (isHomePageFlag) {
+            // главная страница - раздел рекомендаций
+            if (node instanceof Element) {
+              // Проверяем, содержит ли добавленный узел элементы рекомендаций
+              const hasRecommendations = node.querySelector && (
+                node.querySelector(recommendationsItemSelector) ||
+                node.querySelector(recommendationsCardSelector) ||
+                node.classList?.toString().includes('js-item-')
+              );
+              if (hasRecommendations) {
+                // Используем debounce чтобы не вызывать слишком часто
+                clearTimeout(recommendationsDebounceTimeout);
+                recommendationsDebounceTimeout = setTimeout(() => {
+                  console.log(`${logPrefix} обнаружены новые рекомендации`);
+                  processRecommendationsPage();
+                }, 300);
+              }
             }
           } else {
             // страница поиска
             if (node instanceof Element && node?.getAttribute("elementtiming") === offersRootSelectorValue) {
               console.log(`${logPrefix} offersRootSelector обновлен`);
+              // Пробуем добавить переключатель при обновлении DOM
+              insertCityFilterToggle();
               if (!catalogData) return;
               processSearchPage();
             }
             if (node?.classList?.toString().includes("styles-singlePageWrapper")) {
               console.log(`${logPrefix} singlePageWrapper обновлен`);
+              // Пробуем добавить переключатель при обновлении DOM
+              insertCityFilterToggle();
               if (!catalogData) return;
               processSearchPage();
+            }
+            // Проверяем появление верхней панели с фильтрами
+            if (node instanceof Element && node?.classList?.toString().includes("index-topPanel-")) {
+              console.log(`${logPrefix} Верхняя панель обнаружена`);
+              insertCityFilterToggle();
             }
             if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && node?.textContent?.startsWith("{")) {
               try {
@@ -1256,9 +1980,17 @@ async function load_arrays() {
 }
 
 let isPaginationEnabled = false;
-browser.storage.local.get(["isPaginationEnabled"], function (result) {
+let cityFilterEnabled = false;
+
+browser.storage.local.get(["isPaginationEnabled", "isCityFilterEnabled"], function (result) {
   if (result.isPaginationEnabled !== undefined) {
     isPaginationEnabled = result.isPaginationEnabled;
+  }
+  if (result.isCityFilterEnabled !== undefined) {
+    cityFilterEnabled = result.isCityFilterEnabled;
+    // Отложенное обновление визуального состояния переключателя,
+    // т.к. DOM может быть ещё не готов при загрузке storage
+    setTimeout(updateCityFilterToggleState, 100);
   }
 });
 browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
@@ -1267,6 +1999,13 @@ browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (isPaginationEnabled) {
       checkPaginationVisibility();
     }
+  }
+  if (request.action === "updateCityFilterState") {
+    cityFilterEnabled = request.isEnabled;
+    // Обновляем визуальное состояние переключателя
+    updateCityFilterToggleState();
+    // Переобрабатываем страницу для применения фильтра
+    processSearchPage();
   }
 });
 
