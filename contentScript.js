@@ -6,6 +6,13 @@ const NOTES_USERS_KEY = "notesUsers";
 const NOTES_OFFERS_KEY = "notesOffers";
 const NOTES_MAX_LENGTH = 2000;
 const NOTES_SAVE_DEBOUNCE_MS = 450;
+const HIDDEN_ORIGINAL_ATTR = "data-ave-hidden-original";
+const HIDDEN_CLONE_ATTR = "data-ave-hidden-clone";
+const MAX_AUTO_PAGINATION_PAGES = 20;
+const MAX_AUTO_PAGINATION_ITEMS = 1000;
+const MAX_CATALOG_ENTRIES = 1500;
+const MAX_RESERVED_CACHE_SIZE = 500;
+const PROCESS_SEARCH_DEBOUNCE_MS = 150;
 
 const sellerPageSidebarSelector = `[class^="ExtendedProfileStickyContainer-"]`;
 
@@ -874,57 +881,23 @@ function processNewItems(newItems, targetContainer) {
     removeBrokenElements(clone);
     fixItemImages(clone);
     targetContainer.appendChild(clone);
-    // Process the new offer
-    const offerId = getOfferId(clone);
-    const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
-    let userId = null;
-    try {
-      // Если у нас есть userId напрямую из данных каталога
-      if (currentOfferData?.userId) {
-        userId = currentOfferData.userId;
-      } else {
-        // Пробуем извлечь из структуры iva
-        const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-        if (sellerUrl) {
-          const userMatch = sellerUrl.match(/\/user\/([^\/]+)/);
-          const brandMatch = sellerUrl.match(/\/brands\/([^\/]+)/);
-          
-          if (userMatch) {
-            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
-          } else if (brandMatch) {
-            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
-          }
-        }
-      }
-      
-      // Если не получилось из данных каталога, пробуем извлечь из DOM
-      if (!userId) {
-        const sellerLinkElement = clone.querySelector('a[href*="/user/"]') || 
-                                 clone.querySelector('a[href*="/brands/"]');
-        if (sellerLinkElement) {
-          const sellerHref = sellerLinkElement.href;
-          const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
-          const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
-          
-          if (userMatch) {
-            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
-          } else if (brandMatch) {
-            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error extracting userId:", error);
-      userId = undefined;
-    } finally {
-      applyOfferState(clone, { offerId, userId });
-    }
+    processOfferElement(clone);
   });
 }
 
 async function fetchNextPage() {
   if (!isPaginationEnabled || isLoading) {
     console.log(`${logPrefix} Fetch aborted - script disabled or already loading`);
+    return;
+  }
+
+  if (autoPaginationPagesLoaded >= MAX_AUTO_PAGINATION_PAGES) {
+    console.log(`${logPrefix} Достигнут лимит автопагинации: ${MAX_AUTO_PAGINATION_PAGES} страниц`);
+    return;
+  }
+
+  if (autoPaginationItemsLoaded >= MAX_AUTO_PAGINATION_ITEMS) {
+    console.log(`${logPrefix} Достигнут лимит автопагинации: ${MAX_AUTO_PAGINATION_ITEMS} объявлений`);
     return;
   }
 
@@ -974,6 +947,8 @@ async function fetchNextPage() {
       return;
     }
 
+    let addedItemsCount = 0;
+
     // Find catalog data in the new page
     const scriptElements = doc.querySelectorAll("script");
     for (const script of scriptElements) {
@@ -983,8 +958,7 @@ async function fetchNextPage() {
           const decodedJson = decodeHtmlEntities(initCatalogDataContent);
           const newInitialData = JSON.parse(decodedJson);
           const newCatalogData = getCatalogDataFromInit(newInitialData);
-          // Merge new catalog data with existing
-          catalogData = [...catalogData, ...newCatalogData];
+          appendCatalogData(newCatalogData);
           console.log(`${logPrefix} Added ${newCatalogData.length} items to catalogData`);
           break;
         } catch (error) {
@@ -1000,6 +974,7 @@ async function fetchNextPage() {
       if (mainContainer) {
         console.log(`${logPrefix} Adding ${newMainOffers.length} main offers`);
         processNewItems(newMainOffers, mainContainer);
+        addedItemsCount += newMainOffers.length;
       } else {
         console.log(`${logPrefix} Main container not found`);
       }
@@ -1013,7 +988,6 @@ async function fetchNextPage() {
 
         if (!targetContainer) {
           console.log(`${logPrefix} No existing other cities container - creating one`);
-          // Create new container if none exists
           const mainContainer = getMainOffersContainer();
           if (mainContainer) {
             const newContainer = document.createElement("div");
@@ -1026,9 +1000,13 @@ async function fetchNextPage() {
         if (targetContainer) {
           console.log(`${logPrefix} Adding ${newOtherCitiesOffers.length} other cities offers`);
           processNewItems(newOtherCitiesOffers, targetContainer);
+          addedItemsCount += newOtherCitiesOffers.length;
         }
       }
     }
+
+    autoPaginationPagesLoaded += 1;
+    autoPaginationItemsLoaded += addedItemsCount;
 
     // Update pagination
     const newPaginator = doc.querySelector('[class*="js-pages pagination-pagination-"]');
@@ -1418,6 +1396,141 @@ function getOfferId(offerElement) {
   return offerElement.getAttribute("data-item-id");
 }
 
+function getHiddenContainerEl() {
+  return document.querySelector(".hidden-container");
+}
+
+function isHiddenClone(offerElement) {
+  return offerElement?.getAttribute(HIDDEN_CLONE_ATTR) === "true";
+}
+
+function isHiddenOriginal(offerElement) {
+  return offerElement?.getAttribute(HIDDEN_ORIGINAL_ATTR) === "true";
+}
+
+function findHiddenCloneByOfferId(offerId) {
+  const hiddenContainer = getHiddenContainerEl();
+  if (!hiddenContainer || !offerId) return null;
+  return hiddenContainer.querySelector(`[${HIDDEN_CLONE_ATTR}="true"][data-item-id="${offerId}"]`);
+}
+
+function findHiddenOriginalByOfferId(offerId) {
+  if (!offerId) return null;
+  return document.querySelector(`[${HIDDEN_ORIGINAL_ATTR}="true"][data-item-id="${offerId}"]`);
+}
+
+function dedupeHiddenClones(offerId) {
+  const hiddenContainer = getHiddenContainerEl();
+  if (!hiddenContainer || !offerId) return;
+  const clones = hiddenContainer.querySelectorAll(`[${HIDDEN_CLONE_ATTR}="true"][data-item-id="${offerId}"]`);
+  for (let i = 1; i < clones.length; i++) {
+    clones[i].remove();
+  }
+}
+
+function dedupeAllHiddenClones() {
+  const hiddenContainer = getHiddenContainerEl();
+  if (!hiddenContainer) return;
+  const seen = new Set();
+  hiddenContainer.querySelectorAll(`[${HIDDEN_CLONE_ATTR}="true"]`).forEach((clone) => {
+    const offerId = getOfferId(clone);
+    if (!offerId || seen.has(offerId)) {
+      clone.remove();
+      return;
+    }
+    seen.add(offerId);
+  });
+}
+
+function extractUserIdFromSellerUrl(sellerUrl) {
+  if (!sellerUrl) return null;
+  const userMatch = sellerUrl.match(/\/user\/([^\/]+)/);
+  const brandMatch = sellerUrl.match(/\/brands\/([^\/]+)/);
+  if (userMatch) return userMatch[1].split("?")[0];
+  if (brandMatch) return brandMatch[1].split("?")[0];
+  return null;
+}
+
+function extractUserIdFromOfferElement(offerElement) {
+  const sellerLinkElement = offerElement.querySelector('a[href*="/user/"]') ||
+    offerElement.querySelector('a[href*="/brands/"]');
+  if (!sellerLinkElement) return null;
+  return extractUserIdFromSellerUrl(sellerLinkElement.href);
+}
+
+function extractUserIdFromCatalogItem(catalogItem) {
+  if (!catalogItem) return null;
+  if (catalogItem.userId) return catalogItem.userId;
+  if (catalogItem.sellerLink) return extractUserIdFromSellerUrl(catalogItem.sellerLink);
+  const sellerUrl = catalogItem.iva?.UserInfoStep?.[0]?.payload?.profile?.link;
+  return extractUserIdFromSellerUrl(sellerUrl);
+}
+
+function trimCatalogItem(item) {
+  if (!item?.id) return null;
+  const trimmed = { id: item.id };
+  const userId = extractUserIdFromCatalogItem(item);
+  if (userId) trimmed.userId = userId;
+  else {
+    const sellerUrl = item.sellerLink || item.iva?.UserInfoStep?.[0]?.payload?.profile?.link;
+    if (sellerUrl) trimmed.sellerLink = sellerUrl;
+  }
+  return trimmed;
+}
+
+function mergeCatalogData(existing, newItems) {
+  const map = new Map();
+  for (const item of existing || []) {
+    const trimmed = trimCatalogItem(item);
+    if (trimmed) map.set(trimmed.id, trimmed);
+  }
+  for (const item of newItems || []) {
+    const trimmed = trimCatalogItem(item);
+    if (trimmed) map.set(trimmed.id, trimmed);
+  }
+  let entries = Array.from(map.values());
+  if (entries.length > MAX_CATALOG_ENTRIES) {
+    entries = entries.slice(entries.length - MAX_CATALOG_ENTRIES);
+  }
+  return entries;
+}
+
+function setCatalogData(data) {
+  catalogData = mergeCatalogData([], data);
+}
+
+function appendCatalogData(newItems) {
+  catalogData = mergeCatalogData(catalogData, newItems);
+}
+
+function getCatalogItemByOfferId(offerId) {
+  return catalogData?.find((item) => item.id === Number(offerId));
+}
+
+function setReservedStatusCache(offerId, value) {
+  if (!offerId) return;
+  if (reservedStatusCache.size >= MAX_RESERVED_CACHE_SIZE && !reservedStatusCache.has(offerId)) {
+    const firstKey = reservedStatusCache.keys().next().value;
+    reservedStatusCache.delete(firstKey);
+    reservedRequestCache.delete(firstKey);
+  }
+  reservedStatusCache.set(offerId, value);
+}
+
+function pruneReservedCaches() {
+  const activeOfferIds = new Set();
+  document.querySelectorAll("[data-item-id]").forEach((el) => {
+    const id = el.getAttribute("data-item-id");
+    if (id) activeOfferIds.add(id);
+  });
+  for (const key of [...reservedStatusCache.keys()]) {
+    if (!activeOfferIds.has(key)) {
+      reservedStatusCache.delete(key);
+      reservedRequestCache.delete(key);
+    }
+  }
+}
+
 function createHiddenContainer() {
   const offersRoot = document.querySelector(offersRootSelector);
 
@@ -1656,20 +1769,20 @@ async function checkOfferReserved(offerId) {
 
       if (!response.ok) {
         console.warn(`${logPrefix} Не удалось проверить резерв для ${offerId}: HTTP ${response.status}`);
-        reservedStatusCache.set(offerId, null);
+        setReservedStatusCache(offerId, null);
         return null;
       }
 
       const data = await response.json();
       const isReserved = data?.reserved === true;
-      reservedStatusCache.set(offerId, isReserved);
+      setReservedStatusCache(offerId, isReserved);
       if (RESERVED_TEST_MODE_LOGS) {
         console.log(`${logPrefix} [reserve-test] ${offerId}: ${isReserved ? "В резерве" : "Активно"}`);
       }
       return isReserved;
     } catch (error) {
       console.warn(`${logPrefix} Ошибка проверки резерва для ${offerId}:`, error);
-      reservedStatusCache.set(offerId, null);
+      setReservedStatusCache(offerId, null);
       if (RESERVED_TEST_MODE_LOGS) {
         console.log(`${logPrefix} [reserve-test] ${offerId}: статус не определен`);
       }
@@ -1712,11 +1825,22 @@ function applyOfferState(offerElement, offerInfo) {
 
 function updateOfferState(offerElement, offerInfo) {
   const hiddenContainer = createHiddenContainer();
-  const offerIsHidden = hiddenContainer.contains(offerElement);
+  const offerId = offerInfo?.offerId;
+
+  if (isHiddenOriginal(offerElement)) {
+    const existingClone = findHiddenCloneByOfferId(offerId);
+    if (existingClone) {
+      offerElement = existingClone;
+    } else {
+      offerElement.removeAttribute(HIDDEN_ORIGINAL_ATTR);
+      offerElement.style.display = "";
+    }
+  }
+
+  const offerIsHiddenClone = isHiddenClone(offerElement) && hiddenContainer.contains(offerElement);
   const userIsBlacklisted = offerInfo?.userId && blacklistUsers.includes(offerInfo.userId + "_blacklist_user");
-  const offerIsBlacklisted = offerInfo?.offerId && blacklistOffers.includes(offerInfo.offerId + "_blacklist_ad");
-  
-  // Проверка фильтра по городу
+  const offerIsBlacklisted = offerId && blacklistOffers.includes(offerId + "_blacklist_ad");
+
   const isFromCurrentCity = isOfferFromCurrentCity(offerElement);
   const shouldHideByCity = cityFilterEnabled && !isFromCurrentCity;
   const shouldHideByReserved = hideReservedEnabled && offerInfo?.isReserved === true;
@@ -1727,37 +1851,40 @@ function updateOfferState(offerElement, offerInfo) {
     shouldHideByCity,
   });
 
-  // Определяем, нужно ли скрыть объявление
   const shouldHide = userIsBlacklisted || offerIsBlacklisted || shouldHideByReserved || shouldHideByCity;
 
-  if (!offerIsHidden && shouldHide) {
-    // клонируем оригинальное объявление
-    const offerElementClone = offerElement.cloneNode(true);
-    // прячем оригинальное объявление
-    offerElement.style.display = "none";
-    // кладем клон в "скрытый" контейнер
-    hiddenContainer.appendChild(offerElementClone);
-    // переназначаем клон как offerElement, чтоб добавить к нему кнопки позже
-    offerElement = offerElementClone;
-    console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто (${hideReason?.logLabel || "фильтр"})`);
-  } else if (offerIsHidden && !shouldHide) {
-    // удаляем объявление из скрытых
+  if (!offerIsHiddenClone && shouldHide) {
+    const existingClone = findHiddenCloneByOfferId(offerId);
+    if (existingClone) {
+      offerElement = existingClone;
+    } else if (offerElement.style.display === "none" && findHiddenCloneByOfferId(offerId)) {
+      return;
+    } else {
+      const offerElementClone = offerElement.cloneNode(true);
+      offerElementClone.setAttribute(HIDDEN_CLONE_ATTR, "true");
+      offerElement.setAttribute(HIDDEN_ORIGINAL_ATTR, "true");
+      offerElement.style.display = "none";
+      dedupeHiddenClones(offerId);
+      hiddenContainer.appendChild(offerElementClone);
+      offerElement = offerElementClone;
+      console.log(`${logPrefix} объявление ${offerId} скрыто (${hideReason?.logLabel || "фильтр"})`);
+    }
+  } else if (offerIsHiddenClone && !shouldHide) {
     offerElement.remove();
-    // находим оригинальное "скрытое" объявление
-    // переназначаем offerElement, чтоб добавить к нему кнопки позже
-    offerElement = document.querySelector(`[data-item-id="${offerInfo.offerId}"]`);
-    // показываем его
-    if (offerElement) {
-      offerElement.style.display = "block";
+    const original = findHiddenOriginalByOfferId(offerId);
+    if (original) {
+      original.removeAttribute(HIDDEN_ORIGINAL_ATTR);
+      original.style.display = "";
+      offerElement = original;
+    } else {
+      offerElement = null;
     }
   }
 
-  // Если элемент не найден (уже удален), выходим
   if (!offerElement) return;
   setHiddenReasonBadge(offerElement, shouldHide ? hideReason : null);
   setOfferNoteIndicator(offerElement, offerInfo);
 
-  // добавляем контейнер с кнопками
   const buttonContainer = offerElement.querySelector(".button-container");
   if (buttonContainer) buttonContainer.remove();
   if (offerInfo.userId) {
@@ -1766,56 +1893,39 @@ function updateOfferState(offerElement, offerInfo) {
   offerIsBlacklisted ? insertUnblockOfferButton(offerElement, offerInfo) : insertBlockOfferButton(offerElement, offerInfo);
 }
 
-function processSearchPage() {
+function processOfferElement(offerElement) {
+  const offerId = getOfferId(offerElement);
+  const currentOfferData = getCatalogItemByOfferId(offerId);
+  let userId = null;
+
+  try {
+    userId = extractUserIdFromCatalogItem(currentOfferData);
+    if (!userId) {
+      userId = extractUserIdFromOfferElement(offerElement);
+    }
+  } catch (error) {
+    console.warn(`${logPrefix} Error extracting userId:`, error);
+    userId = undefined;
+  } finally {
+    applyOfferState(offerElement, { offerId, userId });
+  }
+}
+
+function processSearchPageNow() {
   if (!catalogData) return;
+  dedupeAllHiddenClones();
+  pruneReservedCaches();
+
   const offerElements = document.querySelectorAll(offersSelector);
   for (const offerElement of offerElements) {
-    const offerId = getOfferId(offerElement);
-    const currentOfferData = catalogData.find((item) => item.id === Number(offerId));
-    let userId = null;
-    
-    try {
-      // Если у нас есть userId напрямую из данных каталога
-      if (currentOfferData?.userId) {
-        userId = currentOfferData.userId;
-      } else {
-        // Пробуем извлечь из структуры iva
-        const sellerUrl = currentOfferData?.iva?.UserInfoStep[0]?.payload?.profile?.link;
-        if (sellerUrl) {
-          const userMatch = sellerUrl.match(/\/user\/([^\/]+)/);
-          const brandMatch = sellerUrl.match(/\/brands\/([^\/]+)/);
-          
-          if (userMatch) {
-            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
-          } else if (brandMatch) {
-            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
-          }
-        }
-      }
-      
-      // Если не получилось из данных каталога, пробуем извлечь из DOM
-      if (!userId) {
-        const sellerLinkElement = offerElement.querySelector('a[href*="/user/"]') || 
-                                 offerElement.querySelector('a[href*="/brands/"]');
-        if (sellerLinkElement) {
-          const sellerHref = sellerLinkElement.href;
-          const userMatch = sellerHref.match(/\/user\/([^\/]+)/);
-          const brandMatch = sellerHref.match(/\/brands\/([^\/]+)/);
-          
-          if (userMatch) {
-            userId = userMatch[1].split('?')[0]; // Убираем параметры после ?
-          } else if (brandMatch) {
-            userId = brandMatch[1].split('?')[0]; // Убираем параметры после ?
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`${logPrefix} Error extracting userId:`, error);
-      userId = undefined;
-    } finally {
-      applyOfferState(offerElement, { offerId, userId });
-    }
+    if (isHiddenOriginal(offerElement)) continue;
+    processOfferElement(offerElement);
   }
+}
+
+function processSearchPage() {
+  clearTimeout(processSearchPageTimeout);
+  processSearchPageTimeout = setTimeout(processSearchPageNow, PROCESS_SEARCH_DEBOUNCE_MS);
 }
 
 // ==================== RECOMMENDATIONS PAGE FUNCTIONALITY ====================
@@ -2448,9 +2558,9 @@ async function main() {
     // Пробуем получить данные каталога альтернативным способом при загрузке
     if (!catalogData || catalogData.length === 0) {
       console.log(`${logPrefix} Пробуем получить данные каталога при инициализации`);
-      catalogData = getCatalogDataAlternative();
+      setCatalogData(getCatalogDataAlternative());
       if (catalogData && catalogData.length > 0) {
-        console.log(`${logPrefix} Данные каталога получены при инициализации:`, catalogData);
+        console.log(`${logPrefix} Данные каталога получены при инициализации: ${catalogData.length} элементов`);
         processSearchPage();
       }
     }
@@ -2598,15 +2708,15 @@ async function main() {
 
                 const decodedJson = decodeHtmlEntities(dataNodeContent);
                 const initialData = JSON.parse(decodedJson);
-                catalogData = getCatalogDataFromInit(initialData);
-                console.log(`${logPrefix} catalogData получен`, catalogData);
+                setCatalogData(getCatalogDataFromInit(initialData));
+                console.log(`${logPrefix} catalogData получен: ${catalogData.length} элементов`);
                 if (catalogData && catalogData.length > 0) {
                   processSearchPage();
                 } else {
                   console.warn(`${logPrefix} catalogData пуст или не найден, пробуем альтернативные способы`);
-                  catalogData = getCatalogDataAlternative();
+                  setCatalogData(getCatalogDataAlternative());
                   if (catalogData && catalogData.length > 0) {
-                    console.log(`${logPrefix} Данные получены альтернативным способом:`, catalogData);
+                    console.log(`${logPrefix} Данные получены альтернативным способом: ${catalogData.length} элементов`);
                     processSearchPage();
                   } else {
                     console.warn(`${logPrefix} Не удалось получить данные каталога никаким способом`);
@@ -2614,11 +2724,10 @@ async function main() {
                 }
               } catch (error) {
                 console.error("Error processing catalog data:", error);
-                // Если основной способ не сработал, пробуем альтернативные
                 console.log(`${logPrefix} Пробуем альтернативные способы получения данных`);
-                catalogData = getCatalogDataAlternative();
+                setCatalogData(getCatalogDataAlternative());
                 if (catalogData && catalogData.length > 0) {
-                  console.log(`${logPrefix} Данные получены альтернативным способом после ошибки:`, catalogData);
+                  console.log(`${logPrefix} Данные получены альтернативным способом после ошибки: ${catalogData.length} элементов`);
                   processSearchPage();
                 }
               }
@@ -2732,6 +2841,9 @@ browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 let catalogData;
 let isLoading = false;
 let checkTimeout;
+let processSearchPageTimeout;
+let autoPaginationPagesLoaded = 0;
+let autoPaginationItemsLoaded = 0;
 let blacklistUsers = [];
 let blacklistOffers = [];
 let notesUsers = {};
