@@ -33,6 +33,13 @@
               <span class="slider round"></span>
             </label>
           </div>
+          <div class="compact-toggle">
+            <h2>Скрывать рассрочку</h2>
+            <label class="switch">
+              <input type="checkbox" id="hideInstallmentsToggle" />
+              <span class="slider round"></span>
+            </label>
+          </div>
         </div>
 
         <div class="operation-section">
@@ -57,8 +64,18 @@
         </div>
 
         <div class="operation-section">
+          <h2>Заметки</h2>
+          <div class="notes-tabs">
+            <button id="notesUsersTab" class="notes-tab-btn notes-tab-btn-active" type="button">Продавцы</button>
+            <button id="notesOffersTab" class="notes-tab-btn" type="button">Объявления</button>
+          </div>
+          <div id="notesList" class="notes-list"></div>
+        </div>
+
+        <div class="operation-section">
           <h2>Очистка</h2>
           <button id="clearButton">Очистить базу данных</button>
+          <button id="clearNotesButton">Очистить заметки</button>
         </div>
       </div>
     </div>

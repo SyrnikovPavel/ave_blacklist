@@ -2,6 +2,10 @@ const offersRootSelectorValue = "bx.catalog.container";
 const offersRootSelector = `[elementtiming="${offersRootSelectorValue}"]`;
 const offersSelector = '[data-marker="item"]';
 const logPrefix = "[ave]";
+const NOTES_USERS_KEY = "notesUsers";
+const NOTES_OFFERS_KEY = "notesOffers";
+const NOTES_MAX_LENGTH = 2000;
+const NOTES_SAVE_DEBOUNCE_MS = 450;
 
 const sellerPageSidebarSelector = `[class^="ExtendedProfileStickyContainer-"]`;
 
@@ -94,6 +98,79 @@ function getItemPageSellerId() {
   return null;
 }
 
+function findItemPageContactsRoot() {
+  return document.querySelector('[data-marker="item-view/item-view-contacts"]') ||
+    document.querySelector('[class*="contact-bar__root"]') ||
+    document.querySelector('[class*="style__contactBarOnly"]');
+}
+
+function findItemPageInstallmentsBlock() {
+  const directBlock = document.querySelector('[data-marker="installments-promoblock"]');
+  if (directBlock) return directBlock;
+
+  const installmentsButton = document.querySelector('[data-marker="installments-promoblock/button"]');
+  if (installmentsButton) {
+    return installmentsButton.closest('[data-marker="installments-promoblock"]') ||
+      installmentsButton.closest('[data-marker="installments-promoblock/button"]')?.parentElement ||
+      installmentsButton.closest("div");
+  }
+
+  return null;
+}
+
+function findItemPageButtonsInsertPoint() {
+  const installmentsBlock = findItemPageInstallmentsBlock();
+  if (installmentsBlock?.parentElement) {
+    return { anchor: installmentsBlock, mode: "before" };
+  }
+
+  const contactsRoot = findItemPageContactsRoot();
+  if (!contactsRoot) return { anchor: null, mode: "append" };
+
+  if (contactsRoot.parentElement) {
+    return { anchor: contactsRoot, mode: "before" };
+  }
+
+  const phoneButton = contactsRoot.querySelector('[data-marker="item-phone-button/card"]');
+  const messageButton = contactsRoot.querySelector('[data-marker="messenger-button/button"]');
+
+  const phoneActionHost = phoneButton?.closest('[class*="item-actions-line"]') || phoneButton?.closest('div');
+  const messageActionHost = messageButton?.closest('[class*="item-actions-line"]') || messageButton?.closest('div');
+
+  if (phoneActionHost?.parentElement && phoneActionHost.parentElement === messageActionHost?.parentElement) {
+    return { anchor: phoneActionHost.parentElement, mode: "append" };
+  }
+
+  if (messageActionHost?.parentElement) {
+    return { anchor: messageActionHost.parentElement, mode: "append" };
+  }
+
+  if (phoneActionHost?.parentElement) {
+    return { anchor: phoneActionHost.parentElement, mode: "append" };
+  }
+
+  return { anchor: contactsRoot, mode: "append" };
+}
+
+function insertItemPageContainer(container) {
+  const insertPoint = findItemPageButtonsInsertPoint();
+  if (!insertPoint?.anchor) return false;
+
+  if (insertPoint.mode === "before") {
+    insertPoint.anchor.before(container);
+    return true;
+  }
+
+  insertPoint.anchor.appendChild(container);
+  return true;
+}
+
+function updateInstallmentsVisibility() {
+  const installmentsBlock = findItemPageInstallmentsBlock();
+  if (!installmentsBlock) return;
+  installmentsBlock.classList.toggle("ave-hidden-installments", hideInstallmentsEnabled);
+}
+
 // Проверка наличия кнопок на странице товара
 function hasItemPageButtons() {
   return document.querySelector('.item-page-blacklist-container') !== null;
@@ -113,21 +190,39 @@ function createItemPageButton(text, isBlock, onClick) {
   return button;
 }
 
+function renderItemPageNotes(container, offerId, sellerId) {
+  if (offerId) {
+    createNoteBlock({
+      container,
+      entityType: "offer",
+      entityId: offerId,
+      label: "Заметка об объявлении",
+      getMetadata: () => ({
+        title: getItemPageTitle(),
+        url: window.location.href,
+      }),
+    });
+  }
+
+  if (sellerId) {
+    createNoteBlock({
+      container,
+      entityType: "user",
+      entityId: sellerId,
+      label: "Заметка о продавце",
+      getMetadata: () => ({
+        displayName: getItemPageSellerName(),
+      }),
+    });
+  }
+}
+
 // Вставка кнопок на страницу товара
 function insertItemPageButtons(offerId, sellerId) {
   // Проверяем, не добавлены ли уже кнопки
   if (hasItemPageButtons()) {
     // Обновляем существующие кнопки
     updateItemPageButtons(offerId, sellerId);
-    return;
-  }
-
-  // Ищем контейнер с кнопками "Показать телефон" и "Написать"
-  const contactBar = document.querySelector('[class*="contact-bar__root"]') || 
-                     document.querySelector('[class*="style__contactBarOnly"]');
-  
-  if (!contactBar) {
-    console.log(`${logPrefix} Контейнер contact-bar не найден на странице товара`);
     return;
   }
 
@@ -173,8 +268,12 @@ function insertItemPageButtons(offerId, sellerId) {
     container.appendChild(offerButton);
   }
 
-  // Вставляем контейнер после основных кнопок
-  contactBar.appendChild(container);
+  renderItemPageNotes(container, offerId, sellerId);
+  if (!insertItemPageContainer(container)) {
+    console.log(`${logPrefix} Точка вставки кнопок не найдена на странице товара`);
+    return;
+  }
+
   console.log(`${logPrefix} Кнопки блокировки добавлены на страницу товара`);
 }
 
@@ -223,6 +322,8 @@ function updateItemPageButtons(offerId, sellerId) {
     );
     container.appendChild(offerButton);
   }
+
+  renderItemPageNotes(container, offerId, sellerId);
 }
 
 // Основная функция обработки страницы товара
@@ -231,6 +332,7 @@ function processItemPage() {
 
   const offerId = getItemPageOfferId();
   const sellerId = getItemPageSellerId();
+  updateInstallmentsVisibility();
 
   console.log(`${logPrefix} Страница товара: offerId=${offerId}, sellerId=${sellerId}`);
 
@@ -327,6 +429,310 @@ function syncGet(key) {
       });
     });
   });
+}
+
+function sanitizeNotesMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const normalized = {};
+  for (const [entityId, note] of Object.entries(value)) {
+    if (!note || typeof note !== "object") continue;
+    const text = typeof note.text === "string" ? note.text : "";
+    if (!text.trim()) continue;
+    normalized[entityId] = {
+      text: text.slice(0, NOTES_MAX_LENGTH),
+      updatedAt: typeof note.updatedAt === "string" ? note.updatedAt : null,
+      displayName: typeof note.displayName === "string" ? note.displayName : undefined,
+      title: typeof note.title === "string" ? note.title : undefined,
+      url: typeof note.url === "string" ? note.url : undefined,
+    };
+  }
+
+  return normalized;
+}
+
+function getNotesStateKey(entityType) {
+  return entityType === "user" ? NOTES_USERS_KEY : NOTES_OFFERS_KEY;
+}
+
+function getNotesMap(entityType) {
+  return entityType === "user" ? notesUsers : notesOffers;
+}
+
+function setNotesMap(entityType, value) {
+  if (entityType === "user") {
+    notesUsers = value;
+    return;
+  }
+  notesOffers = value;
+}
+
+async function loadNotes() {
+  const result = await browser.storage.local.get([NOTES_USERS_KEY, NOTES_OFFERS_KEY]);
+  notesUsers = sanitizeNotesMap(result[NOTES_USERS_KEY]);
+  notesOffers = sanitizeNotesMap(result[NOTES_OFFERS_KEY]);
+}
+
+function getNote(entityType, entityId) {
+  if (!entityId) return null;
+  const map = getNotesMap(entityType);
+  return map[entityId] || null;
+}
+
+function getNotePreviewText(noteText) {
+  if (!noteText || !noteText.trim()) {
+    return "Добавить заметку";
+  }
+  const normalized = noteText.replace(/\s+/g, " ").trim();
+  return normalized.length > 80 ? `${normalized.slice(0, 80)}...` : normalized;
+}
+
+function getProfileSellerName() {
+  const nameHeader = document.querySelector('[data-marker^="name "]');
+  if (nameHeader?.textContent) {
+    return nameHeader.textContent.trim();
+  }
+  return null;
+}
+
+function getItemPageSellerName() {
+  const sellerNameEl = document.querySelector('[data-marker="seller-info/name"]') ||
+    document.querySelector('[data-marker="seller-link/name"]') ||
+    document.querySelector('[class*="SellerInfo-name"]');
+  if (sellerNameEl?.textContent) {
+    return sellerNameEl.textContent.trim();
+  }
+  return null;
+}
+
+function getItemPageTitle() {
+  const titleEl = document.querySelector('[data-marker="item-view/title-info"]') ||
+    document.querySelector("h1");
+  if (titleEl?.textContent) {
+    return titleEl.textContent.trim();
+  }
+  return null;
+}
+
+function normalizeNoteText(textValue) {
+  const text = typeof textValue === "string" ? textValue : "";
+  return text.slice(0, NOTES_MAX_LENGTH);
+}
+
+async function saveNote(entityType, entityId, textValue, metadata = {}) {
+  if (!entityId) return;
+  const mapKey = getNotesStateKey(entityType);
+  const map = { ...getNotesMap(entityType) };
+  const normalizedText = normalizeNoteText(textValue);
+
+  if (!normalizedText.trim()) {
+    if (map[entityId]) {
+      delete map[entityId];
+      setNotesMap(entityType, map);
+      await browser.storage.local.set({ [mapKey]: map });
+      console.log(`${logPrefix} заметка удалена: ${entityType} ${entityId}`);
+    }
+    return;
+  }
+
+  const note = {
+    text: normalizedText,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (typeof metadata.displayName === "string" && metadata.displayName.trim()) {
+    note.displayName = metadata.displayName.trim();
+  } else if (map[entityId]?.displayName) {
+    note.displayName = map[entityId].displayName;
+  }
+
+  if (typeof metadata.title === "string" && metadata.title.trim()) {
+    note.title = metadata.title.trim();
+  } else if (map[entityId]?.title) {
+    note.title = map[entityId].title;
+  }
+
+  if (typeof metadata.url === "string" && metadata.url.trim()) {
+    note.url = metadata.url.trim();
+  } else if (map[entityId]?.url) {
+    note.url = map[entityId].url;
+  }
+
+  map[entityId] = note;
+  setNotesMap(entityType, map);
+  await browser.storage.local.set({ [mapKey]: map });
+  console.log(`${logPrefix} заметка сохранена: ${entityType} ${entityId}`);
+}
+
+function registerNoteBlockController(entityType, entityId, controller) {
+  const key = `${entityType}:${entityId}`;
+  if (!noteBlockControllers.has(key)) {
+    noteBlockControllers.set(key, new Set());
+  }
+  noteBlockControllers.get(key).add(controller);
+}
+
+function refreshNoteBlocks(entityType, entityId) {
+  const key = `${entityType}:${entityId}`;
+  const controllers = noteBlockControllers.get(key);
+  if (!controllers) return;
+
+  for (const controller of [...controllers]) {
+    if (!controller?.element?.isConnected) {
+      controllers.delete(controller);
+      continue;
+    }
+    controller.refresh();
+  }
+
+  if (controllers.size === 0) {
+    noteBlockControllers.delete(key);
+  }
+}
+
+function refreshAllNoteBlocks() {
+  for (const [key, controllers] of [...noteBlockControllers.entries()]) {
+    for (const controller of [...controllers]) {
+      if (!controller?.element?.isConnected) {
+        controllers.delete(controller);
+        continue;
+      }
+      controller.refresh();
+    }
+    if (controllers.size === 0) {
+      noteBlockControllers.delete(key);
+    }
+  }
+}
+
+function createNoteBlock(options) {
+  const existing = options.container.querySelector(
+    `.ave-note-card[data-ave-note-type="${options.entityType}"][data-ave-note-id="${options.entityId}"]`
+  );
+  if (existing) return existing;
+
+  const details = document.createElement("details");
+  details.className = "ave-note-card";
+  details.dataset.aveNoteType = options.entityType;
+  details.dataset.aveNoteId = options.entityId;
+
+  const summary = document.createElement("summary");
+  summary.className = "ave-note-summary";
+  const summaryLabel = document.createElement("span");
+  summaryLabel.className = "ave-note-summary-label";
+  summaryLabel.textContent = options.label;
+  const summaryPreview = document.createElement("span");
+  summaryPreview.className = "ave-note-summary-preview";
+  summary.appendChild(summaryLabel);
+  summary.appendChild(summaryPreview);
+
+  const body = document.createElement("div");
+  body.className = "ave-note-body";
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "ave-note-textarea";
+  textarea.placeholder = "Введите заметку...";
+  textarea.maxLength = NOTES_MAX_LENGTH;
+
+  const footer = document.createElement("div");
+  footer.className = "ave-note-footer";
+  const statusEl = document.createElement("span");
+  statusEl.className = "ave-note-status";
+  const counterEl = document.createElement("span");
+  counterEl.className = "ave-note-counter";
+  footer.appendChild(statusEl);
+  footer.appendChild(counterEl);
+
+  body.appendChild(textarea);
+  body.appendChild(footer);
+  details.appendChild(summary);
+  details.appendChild(body);
+  options.container.appendChild(details);
+
+  let saveTimer = null;
+  let saveRequestId = 0;
+
+  const setStatus = (status) => {
+    statusEl.dataset.state = status;
+    if (status === "saving") {
+      statusEl.textContent = "Сохранение...";
+      return;
+    }
+    if (status === "saved") {
+      statusEl.textContent = "Сохранено";
+      return;
+    }
+    if (status === "error") {
+      statusEl.textContent = "Ошибка сохранения";
+      return;
+    }
+    statusEl.textContent = "";
+  };
+
+  const updateCounter = () => {
+    counterEl.textContent = `${textarea.value.length}/${NOTES_MAX_LENGTH}`;
+  };
+
+  const refresh = () => {
+    const note = getNote(options.entityType, options.entityId);
+    const noteText = note?.text || "";
+    if (document.activeElement !== textarea) {
+      textarea.value = noteText;
+      updateCounter();
+    }
+    summaryPreview.textContent = getNotePreviewText(noteText);
+    if (note?.updatedAt) {
+      setStatus("saved");
+    } else if (!textarea.value.trim()) {
+      setStatus("idle");
+    }
+  };
+
+  const saveNow = async () => {
+    const requestId = ++saveRequestId;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    setStatus("saving");
+    try {
+      const metadata = typeof options.getMetadata === "function" ? options.getMetadata() : {};
+      await saveNote(options.entityType, options.entityId, textarea.value, metadata);
+      if (requestId !== saveRequestId) return;
+      setStatus("saved");
+      summaryPreview.textContent = getNotePreviewText(textarea.value);
+      refreshNoteBlocks(options.entityType, options.entityId);
+    } catch (error) {
+      console.error(`${logPrefix} ошибка сохранения заметки`, error);
+      if (requestId !== saveRequestId) return;
+      setStatus("error");
+    }
+  };
+
+  textarea.addEventListener("input", () => {
+    if (textarea.value.length > NOTES_MAX_LENGTH) {
+      textarea.value = textarea.value.slice(0, NOTES_MAX_LENGTH);
+    }
+    updateCounter();
+    setStatus("saving");
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, NOTES_SAVE_DEBOUNCE_MS);
+  });
+
+  textarea.addEventListener("blur", () => {
+    saveNow();
+  });
+
+  registerNoteBlockController(options.entityType, options.entityId, {
+    element: details,
+    refresh,
+  });
+
+  refresh();
+  updateCounter();
+  return details;
 }
 
 function migrateStorage() {
@@ -1174,6 +1580,51 @@ function setHiddenReasonBadge(offerElement, reason) {
   imageContainer.appendChild(badge);
 }
 
+function hasAnyNoteForOfferInfo(offerInfo) {
+  const offerHasNote = Boolean(offerInfo?.offerId && notesOffers[offerInfo.offerId]?.text?.trim());
+  const userHasNote = Boolean(offerInfo?.userId && notesUsers[offerInfo.userId]?.text?.trim());
+  return {
+    offerHasNote,
+    userHasNote,
+    hasNote: offerHasNote || userHasNote,
+  };
+}
+
+function getOfferNoteIndicatorTitle(offerInfo) {
+  const noteState = hasAnyNoteForOfferInfo(offerInfo);
+  if (noteState.offerHasNote && noteState.userHasNote) {
+    return "Есть заметки об объявлении и продавце";
+  }
+  if (noteState.offerHasNote) {
+    return "Есть заметка об объявлении";
+  }
+  if (noteState.userHasNote) {
+    return "Есть заметка о продавце";
+  }
+  return "";
+}
+
+function setOfferNoteIndicator(offerElement, offerInfo) {
+  const existingIndicator = offerElement.querySelector(".ave-note-indicator");
+  if (existingIndicator) {
+    existingIndicator.remove();
+  }
+
+  const noteState = hasAnyNoteForOfferInfo(offerInfo);
+  if (!noteState.hasNote) return;
+
+  const imageContainer = offerElement.querySelector('[class*="photo-slider-root"]') || offerElement;
+  if (getComputedStyle(imageContainer).position === "static") {
+    imageContainer.style.position = "relative";
+  }
+
+  const indicator = document.createElement("div");
+  indicator.className = "ave-note-indicator";
+  indicator.title = getOfferNoteIndicatorTitle(offerInfo);
+  indicator.textContent = noteState.offerHasNote && noteState.userHasNote ? "2 заметки" : "Заметка";
+  imageContainer.appendChild(indicator);
+}
+
 function getCachedReservedStatus(offerId) {
   if (!offerId || !reservedStatusCache.has(offerId)) return undefined;
   return reservedStatusCache.get(offerId);
@@ -1304,6 +1755,7 @@ function updateOfferState(offerElement, offerInfo) {
   // Если элемент не найден (уже удален), выходим
   if (!offerElement) return;
   setHiddenReasonBadge(offerElement, shouldHide ? hideReason : null);
+  setOfferNoteIndicator(offerElement, offerInfo);
 
   // добавляем контейнер с кнопками
   const buttonContainer = offerElement.querySelector(".button-container");
@@ -1514,6 +1966,19 @@ function createProfilePageButton(text, isBlock, onClick) {
   return button;
 }
 
+function renderProfileNote(container, userId) {
+  if (!container || !userId) return;
+  createNoteBlock({
+    container,
+    entityType: "user",
+    entityId: userId,
+    label: "Заметка о продавце",
+    getMetadata: () => ({
+      displayName: getProfileSellerName(),
+    }),
+  });
+}
+
 function insertBlockedSellerUI(userId) {
   if (hasProfilePageButtons()) {
     // Обновляем существующие кнопки
@@ -1552,6 +2017,7 @@ function insertBlockedSellerUI(userId) {
   });
   
   container.appendChild(unblockButton);
+  renderProfileNote(container, userId);
   insertPoint.appendChild(container);
   console.log(`${logPrefix} Кнопка разблокировки добавлена на страницу профиля`);
 }
@@ -1582,6 +2048,7 @@ function insertSellerUI(userId) {
   });
   
   container.appendChild(blockButton);
+  renderProfileNote(container, userId);
   insertPoint.appendChild(container);
   console.log(`${logPrefix} Кнопка блокировки добавлена на страницу профиля`);
 }
@@ -1612,6 +2079,8 @@ function updateProfilePageButtons(userId) {
     });
     container.appendChild(blockButton);
   }
+
+  renderProfileNote(container, userId);
 }
 
 function processSellerPage(userId) {
@@ -2053,17 +2522,27 @@ async function main() {
             if (node instanceof Element) {
               // Проверяем, появился ли контейнер с кнопками контактов
               const hasContactBar = node.querySelector && (
+                node.querySelector('[data-marker="item-view/item-view-contacts"]') ||
+                node.querySelector('[data-marker="item-phone-button/card"]') ||
+                node.querySelector('[data-marker="messenger-button/button"]') ||
                 node.querySelector('[class*="contact-bar__root"]') ||
                 node.querySelector('[class*="style__contactBarOnly"]') ||
                 node.classList?.toString().includes('contact-bar')
               );
+              const hasInstallmentsBlock = node.querySelector && (
+                node.querySelector('[data-marker="installments-promoblock"]') ||
+                node.querySelector('[data-marker="installments-promoblock/button"]')
+              );
               // Или появилась информация о продавце
               const hasSellerInfo = node.querySelector && (
+                node.querySelector('[data-marker="sellerInfo"]') ||
+                node.querySelector('[data-marker="item-view/seller-info"]') ||
                 node.querySelector('[data-marker="seller-link/link"]') ||
                 node.querySelector('[data-marker="seller-info/name"]')
               );
-              if (hasContactBar || hasSellerInfo) {
+              if (hasContactBar || hasSellerInfo || hasInstallmentsBlock) {
                 console.log(`${logPrefix} обнаружен контейнер контактов или информация о продавце`);
+                updateInstallmentsVisibility();
                 processItemPage();
               }
             }
@@ -2160,13 +2639,15 @@ async function main() {
 async function load_arrays() {
   blacklistUsers = await syncGet("blacklistUsers");
   blacklistOffers = await syncGet("blacklistOffers");
+  await loadNotes();
 }
 
 let isPaginationEnabled = false;
 let cityFilterEnabled = false;
 let hideReservedEnabled = false;
+let hideInstallmentsEnabled = true;
 
-browser.storage.local.get(["isPaginationEnabled", "isCityFilterEnabled", "isHideReservedEnabled"], function (result) {
+browser.storage.local.get(["isPaginationEnabled", "isCityFilterEnabled", "isHideReservedEnabled", "isHideInstallmentsEnabled"], function (result) {
   if (result.isPaginationEnabled !== undefined) {
     isPaginationEnabled = result.isPaginationEnabled;
   }
@@ -2176,13 +2657,50 @@ browser.storage.local.get(["isPaginationEnabled", "isCityFilterEnabled", "isHide
   if (result.isHideReservedEnabled !== undefined) {
     hideReservedEnabled = result.isHideReservedEnabled;
   }
+  if (result.isHideInstallmentsEnabled !== undefined) {
+    hideInstallmentsEnabled = result.isHideInstallmentsEnabled;
+  } else {
+    hideInstallmentsEnabled = true;
+  }
   // Отложенное обновление визуального состояния переключателей,
   // т.к. DOM может быть ещё не готов при загрузке storage
   setTimeout(() => {
     updateCityFilterToggleState();
     updateHideReservedToggleState();
+    updateInstallmentsVisibility();
   }, 100);
 });
+
+browser.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+
+  let shouldRefreshNotes = false;
+  if (changes[NOTES_USERS_KEY]) {
+    notesUsers = sanitizeNotesMap(changes[NOTES_USERS_KEY].newValue);
+    shouldRefreshNotes = true;
+  }
+  if (changes[NOTES_OFFERS_KEY]) {
+    notesOffers = sanitizeNotesMap(changes[NOTES_OFFERS_KEY].newValue);
+    shouldRefreshNotes = true;
+  }
+  if (changes.isHideInstallmentsEnabled) {
+    hideInstallmentsEnabled = changes.isHideInstallmentsEnabled.newValue !== undefined
+      ? changes.isHideInstallmentsEnabled.newValue
+      : true;
+    if (isItemPage()) {
+      updateInstallmentsVisibility();
+    }
+  }
+
+  if (shouldRefreshNotes) {
+    refreshAllNoteBlocks();
+    const isSearchPage = !isUserProfilePage() && !isItemPage() && !isHomePage();
+    if (isSearchPage && catalogData) {
+      processSearchPage();
+    }
+  }
+});
+
 browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "updatePaginationState") {
     isPaginationEnabled = request.isEnabled;
@@ -2202,6 +2720,13 @@ browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     updateHideReservedToggleState();
     processSearchPage();
   }
+  if (request.action === "updateHideInstallmentsState") {
+    hideInstallmentsEnabled = request.isEnabled;
+    if (isItemPage()) {
+      updateInstallmentsVisibility();
+      processItemPage();
+    }
+  }
 });
 
 let catalogData;
@@ -2209,9 +2734,12 @@ let isLoading = false;
 let checkTimeout;
 let blacklistUsers = [];
 let blacklistOffers = [];
+let notesUsers = {};
+let notesOffers = {};
+let noteBlockControllers = new Map();
 let reservedStatusCache = new Map();
 let reservedRequestCache = new Map();
 
-load_arrays();
-
-main();
+load_arrays().finally(() => {
+  main();
+});
