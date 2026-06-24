@@ -5,6 +5,7 @@ if (typeof browser === "undefined") {
 
 const autoPaginationToggle = document.getElementById("autoPaginationToggle");
 const cityFilterToggle = document.getElementById("cityFilterToggle");
+const hideReservedToggle = document.getElementById("hideReservedToggle");
 
 // Load auto-pagination state
 browser.storage.local.get(["isPaginationEnabled"], function (result) {
@@ -16,6 +17,12 @@ browser.storage.local.get(["isPaginationEnabled"], function (result) {
 browser.storage.local.get(["isCityFilterEnabled"], function (result) {
   const isEnabled = result.isCityFilterEnabled || false; // default to false
   cityFilterToggle.checked = isEnabled;
+});
+
+// Load hide reserved filter state
+browser.storage.local.get(["isHideReservedEnabled"], function (result) {
+  const isEnabled = result.isHideReservedEnabled || false; // default to false
+  hideReservedToggle.checked = isEnabled;
 });
 
 // Save auto-pagination state when toggled
@@ -41,6 +48,20 @@ cityFilterToggle.addEventListener("change", function () {
   browser.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     browser.tabs.sendMessage(tabs[0].id, {
       action: "updateCityFilterState",
+      isEnabled: isEnabled,
+    });
+  });
+});
+
+// Save hide reserved filter state when toggled
+hideReservedToggle.addEventListener("change", function () {
+  const isEnabled = this.checked;
+  browser.storage.local.set({ isHideReservedEnabled: isEnabled });
+
+  // Send message to content script to update the state
+  browser.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    browser.tabs.sendMessage(tabs[0].id, {
+      action: "updateHideReservedState",
       isEnabled: isEnabled,
     });
   });

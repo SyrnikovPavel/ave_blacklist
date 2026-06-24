@@ -511,7 +511,7 @@ function processNewItems(newItems, targetContainer) {
       console.error("Error extracting userId:", error);
       userId = undefined;
     } finally {
-      updateOfferState(clone, { offerId, userId });
+      applyOfferState(clone, { offerId, userId });
     }
   });
 }
@@ -697,6 +697,10 @@ const EXCLUDED_URL_PATHS = ['user', 'brands', 'companies', 'shops', 'profile', '
 // CSS класс Avito для визуального состояния "включено" у переключателя
 // Примечание: класс содержит хеш, который может измениться при обновлении Avito
 const TOGGLE_CHECKED_CLASS = 'styles-module-controlledInput_checked-fJhQQ';
+const CITY_FILTER_MARKER = 'filters/cityOnly';
+const HIDE_RESERVED_FILTER_MARKER = 'filters/hideReserved';
+const RESERVED_CHECK_TIMEOUT_MS = 5000;
+const RESERVED_TEST_MODE_LOGS = true;
 
 // Извлечение города из URL (общая функция)
 function extractCityFromUrl(url) {
@@ -779,83 +783,133 @@ function setToggleVisualState(checkbox, label, isEnabled) {
 
 // Обновление визуального состояния переключателя города
 function updateCityFilterToggleState() {
-  const label = document.querySelector('[data-marker="filters/cityOnly"]');
+  const label = document.querySelector(`[data-marker="${CITY_FILTER_MARKER}"]`);
   if (!label) return;
   
   const checkbox = label.querySelector('input[type="checkbox"]');
   setToggleVisualState(checkbox, label, cityFilterEnabled);
 }
 
-// Создание UI переключателя "Только из [город]"
-function insertCityFilterToggle() {
-  // Проверяем, не добавлен ли уже переключатель
-  const existingToggle = document.querySelector('[data-marker="filters/cityOnly"]');
+// Обновление визуального состояния переключателя "Скрывать резервы"
+function updateHideReservedToggleState() {
+  const label = document.querySelector(`[data-marker="${HIDE_RESERVED_FILTER_MARKER}"]`);
+  if (!label) return;
+  const checkbox = label.querySelector('input[type="checkbox"]');
+  setToggleVisualState(checkbox, label, hideReservedEnabled);
+}
+
+function insertSearchFilterToggle(options) {
+  const existingToggle = document.querySelector(`[data-marker="${options.labelMarker}"]`);
   if (existingToggle) {
-    // Обновляем состояние существующего переключателя
-    updateCityFilterToggleState();
+    options.onExisting(existingToggle);
     return;
   }
 
-  // Ищем панель с переключателем "Сначала из..."
   const topPanel = document.querySelector('[class*="index-topPanel-"]');
   if (!topPanel) {
-    console.log(`${logPrefix} Верхняя панель не найдена для вставки переключателя города`);
+    console.log(`${logPrefix} Верхняя панель не найдена для вставки переключателя ${options.labelMarker}`);
     return;
   }
 
-  // Ищем существующий переключатель "Сначала из..." для копирования структуры
   const existingToggleContainer = topPanel.querySelector('[data-marker="filters/localPriority/localPriority"]');
   if (!existingToggleContainer) {
     console.log(`${logPrefix} Существующий переключатель не найден`);
     return;
   }
 
-  const cityName = getCityDisplayName();
-  
-  // Клонируем родительский контейнер переключателя
-  const parentContainer = existingToggleContainer.closest('.styles-module-theme-CW0hC');
+  const getToggleHostContainer = (labelElement) => {
+    return (
+      labelElement.closest('[class*="styles-module-theme-"]') ||
+      labelElement.closest('[class*="filters-subscription-additions-"]') ||
+      labelElement.parentElement
+    );
+  };
+
+  const parentContainer = getToggleHostContainer(existingToggleContainer);
   if (!parentContainer) {
     console.log(`${logPrefix} Родительский контейнер не найден`);
     return;
   }
 
   const newContainer = parentContainer.cloneNode(true);
-  
-  // Настраиваем label
   const newLabel = newContainer.querySelector('label');
   if (newLabel) {
-    newLabel.setAttribute('data-marker', 'filters/cityOnly');
-  }
-  
-  // Изменяем текст
-  const labelText = newContainer.querySelector('.filters-switcherLabel-vbkFI');
-  if (labelText) {
-    labelText.textContent = `Только из ${cityName}`;
+    newLabel.setAttribute('data-marker', options.labelMarker);
   }
 
-  // Настраиваем checkbox
+  const labelText = newContainer.querySelector('.filters-switcherLabel-vbkFI');
+  if (labelText) {
+    labelText.textContent = typeof options.labelText === 'function' ? options.labelText() : options.labelText;
+  }
+
   const checkbox = newContainer.querySelector('input[type="checkbox"]');
   if (checkbox) {
-    checkbox.name = 'cityOnly';
-    checkbox.value = 'cityOnly';
-    checkbox.setAttribute('data-marker', 'filters/cityOnly/toggle');
-    
-    // Устанавливаем начальное визуальное состояние
-    setToggleVisualState(checkbox, newLabel, cityFilterEnabled);
-    
-    // Обработчик изменения checkbox
-    checkbox.addEventListener('change', function() {
-      cityFilterEnabled = this.checked;
-      setToggleVisualState(this, newLabel, cityFilterEnabled);
-      browser.storage.local.set({ isCityFilterEnabled: cityFilterEnabled });
-      console.log(`${logPrefix} Фильтр по городу: ${cityFilterEnabled ? 'включен' : 'выключен'}`);
-      processSearchPage();
+    checkbox.name = options.checkboxName;
+    checkbox.value = options.checkboxValue;
+    checkbox.setAttribute('data-marker', `${options.labelMarker}/toggle`);
+    setToggleVisualState(checkbox, newLabel, options.getIsEnabled());
+    checkbox.addEventListener('change', function () {
+      options.onToggle(this.checked, this, newLabel);
     });
   }
 
-  // Вставляем новый переключатель после существующего
-  parentContainer.after(newContainer);
-  console.log(`${logPrefix} Переключатель "Только из ${cityName}" добавлен`);
+  let insertAfterContainer = parentContainer;
+  if (options.insertAfterMarker) {
+    const afterLabel = topPanel.querySelector(`[data-marker="${options.insertAfterMarker}"]`);
+    const afterContainer = afterLabel ? getToggleHostContainer(afterLabel) : null;
+    if (afterContainer) {
+      insertAfterContainer = afterContainer;
+    }
+  }
+
+  insertAfterContainer.after(newContainer);
+}
+
+// Создание UI переключателя "Только из [город]"
+function insertCityFilterToggle() {
+  const cityName = getCityDisplayName();
+  insertSearchFilterToggle({
+    labelMarker: CITY_FILTER_MARKER,
+    checkboxName: 'cityOnly',
+    checkboxValue: 'cityOnly',
+    labelText: () => `Только из ${getCityDisplayName()}`,
+    getIsEnabled: () => cityFilterEnabled,
+    insertAfterMarker: 'filters/localPriority/localPriority',
+    onExisting: () => {
+      updateCityFilterToggleState();
+      const existingText = document.querySelector(`[data-marker="${CITY_FILTER_MARKER}"] .filters-switcherLabel-vbkFI`);
+      if (existingText) {
+        existingText.textContent = `Только из ${getCityDisplayName()}`;
+      }
+    },
+    onToggle: (isEnabled, checkbox, label) => {
+      cityFilterEnabled = isEnabled;
+      setToggleVisualState(checkbox, label, cityFilterEnabled);
+      browser.storage.local.set({ isCityFilterEnabled: cityFilterEnabled });
+      console.log(`${logPrefix} Фильтр по городу: ${cityFilterEnabled ? 'включен' : 'выключен'}`);
+      processSearchPage();
+    },
+  });
+  console.log(`${logPrefix} Переключатель "Только из ${cityName}" добавлен/обновлен`);
+}
+
+function insertHideReservedToggle() {
+  insertSearchFilterToggle({
+    labelMarker: HIDE_RESERVED_FILTER_MARKER,
+    checkboxName: 'hideReserved',
+    checkboxValue: 'hideReserved',
+    labelText: 'Скрывать резервы',
+    getIsEnabled: () => hideReservedEnabled,
+    insertAfterMarker: CITY_FILTER_MARKER,
+    onExisting: updateHideReservedToggleState,
+    onToggle: (isEnabled, checkbox, label) => {
+      hideReservedEnabled = isEnabled;
+      setToggleVisualState(checkbox, label, hideReservedEnabled);
+      browser.storage.local.set({ isHideReservedEnabled: hideReservedEnabled });
+      console.log(`${logPrefix} Фильтр по резервам: ${hideReservedEnabled ? 'включен' : 'выключен'}`);
+      processSearchPage();
+    },
+  });
 }
 
 // ==================== MAIN FUNCTIONALITY ====================
@@ -1085,6 +1139,126 @@ function insertButtonContainer(offerElement) {
   return container;
 }
 
+function getHiddenReason(params) {
+  if (params.userIsBlacklisted) {
+    return { text: "Продавец скрыт пользователем", className: "hidden-reason-user", logLabel: "продавец в ЧС" };
+  }
+  if (params.offerIsBlacklisted) {
+    return { text: "Объявление скрыто пользователем", className: "hidden-reason-offer", logLabel: "объявление в ЧС" };
+  }
+  if (params.shouldHideByReserved) {
+    return { text: "В резерве", className: "hidden-reason-reserved", logLabel: "в резерве" };
+  }
+  if (params.shouldHideByCity) {
+    return { text: "Другой город", className: "hidden-reason-city", logLabel: "другой город" };
+  }
+  return null;
+}
+
+function setHiddenReasonBadge(offerElement, reason) {
+  const currentBadge = offerElement.querySelector(".hidden-reason-badge");
+  if (currentBadge) {
+    currentBadge.remove();
+  }
+  if (!reason) return;
+  if (!offerElement.closest(".hidden-container")) return;
+
+  const badge = document.createElement("div");
+  badge.className = `hidden-reason-badge ${reason.className}`;
+  badge.textContent = reason.text;
+
+  const imageContainer = offerElement.querySelector('[class*="photo-slider-root"]') || offerElement;
+  if (getComputedStyle(imageContainer).position === "static") {
+    imageContainer.style.position = "relative";
+  }
+  imageContainer.appendChild(badge);
+}
+
+function getCachedReservedStatus(offerId) {
+  if (!offerId || !reservedStatusCache.has(offerId)) return undefined;
+  return reservedStatusCache.get(offerId);
+}
+
+async function checkOfferReserved(offerId) {
+  if (!offerId) return null;
+  if (reservedStatusCache.has(offerId)) {
+    return reservedStatusCache.get(offerId);
+  }
+  if (reservedRequestCache.has(offerId)) {
+    return reservedRequestCache.get(offerId);
+  }
+
+  const requestPromise = (async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), RESERVED_CHECK_TIMEOUT_MS);
+    try {
+      const response = await fetch(`https://www.avito.ru/web/1/delivery/conditions/${offerId}/buyer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        credentials: "include",
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        console.warn(`${logPrefix} Не удалось проверить резерв для ${offerId}: HTTP ${response.status}`);
+        reservedStatusCache.set(offerId, null);
+        return null;
+      }
+
+      const data = await response.json();
+      const isReserved = data?.reserved === true;
+      reservedStatusCache.set(offerId, isReserved);
+      if (RESERVED_TEST_MODE_LOGS) {
+        console.log(`${logPrefix} [reserve-test] ${offerId}: ${isReserved ? "В резерве" : "Активно"}`);
+      }
+      return isReserved;
+    } catch (error) {
+      console.warn(`${logPrefix} Ошибка проверки резерва для ${offerId}:`, error);
+      reservedStatusCache.set(offerId, null);
+      if (RESERVED_TEST_MODE_LOGS) {
+        console.log(`${logPrefix} [reserve-test] ${offerId}: статус не определен`);
+      }
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+      reservedRequestCache.delete(offerId);
+    }
+  })();
+
+  reservedRequestCache.set(offerId, requestPromise);
+  return requestPromise;
+}
+
+function applyOfferState(offerElement, offerInfo) {
+  const normalizedOfferInfo = {
+    offerId: offerInfo.offerId,
+    userId: offerInfo.userId,
+    isReserved: null,
+  };
+  if (!hideReservedEnabled || !offerInfo.offerId) {
+    updateOfferState(offerElement, normalizedOfferInfo);
+    return;
+  }
+
+  const cachedReservedStatus = getCachedReservedStatus(offerInfo.offerId);
+  normalizedOfferInfo.isReserved = cachedReservedStatus === undefined ? null : cachedReservedStatus;
+  updateOfferState(offerElement, normalizedOfferInfo);
+
+  if (cachedReservedStatus === undefined) {
+    checkOfferReserved(offerInfo.offerId).then((isReserved) => {
+      updateOfferState(offerElement, {
+        offerId: offerInfo.offerId,
+        userId: offerInfo.userId,
+        isReserved,
+      });
+    });
+  }
+}
+
 function updateOfferState(offerElement, offerInfo) {
   const hiddenContainer = createHiddenContainer();
   const offerIsHidden = hiddenContainer.contains(offerElement);
@@ -1094,9 +1268,16 @@ function updateOfferState(offerElement, offerInfo) {
   // Проверка фильтра по городу
   const isFromCurrentCity = isOfferFromCurrentCity(offerElement);
   const shouldHideByCity = cityFilterEnabled && !isFromCurrentCity;
+  const shouldHideByReserved = hideReservedEnabled && offerInfo?.isReserved === true;
+  const hideReason = getHiddenReason({
+    userIsBlacklisted,
+    offerIsBlacklisted,
+    shouldHideByReserved,
+    shouldHideByCity,
+  });
 
   // Определяем, нужно ли скрыть объявление
-  const shouldHide = userIsBlacklisted || offerIsBlacklisted || shouldHideByCity;
+  const shouldHide = userIsBlacklisted || offerIsBlacklisted || shouldHideByReserved || shouldHideByCity;
 
   if (!offerIsHidden && shouldHide) {
     // клонируем оригинальное объявление
@@ -1107,11 +1288,7 @@ function updateOfferState(offerElement, offerInfo) {
     hiddenContainer.appendChild(offerElementClone);
     // переназначаем клон как offerElement, чтоб добавить к нему кнопки позже
     offerElement = offerElementClone;
-    if (shouldHideByCity && !userIsBlacklisted && !offerIsBlacklisted) {
-      console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто (другой город)`);
-    } else {
-      console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто`);
-    }
+    console.log(`${logPrefix} объявление ${offerInfo.offerId} скрыто (${hideReason?.logLabel || "фильтр"})`);
   } else if (offerIsHidden && !shouldHide) {
     // удаляем объявление из скрытых
     offerElement.remove();
@@ -1126,6 +1303,7 @@ function updateOfferState(offerElement, offerInfo) {
 
   // Если элемент не найден (уже удален), выходим
   if (!offerElement) return;
+  setHiddenReasonBadge(offerElement, shouldHide ? hideReason : null);
 
   // добавляем контейнер с кнопками
   const buttonContainer = offerElement.querySelector(".button-container");
@@ -1137,6 +1315,7 @@ function updateOfferState(offerElement, offerInfo) {
 }
 
 function processSearchPage() {
+  if (!catalogData) return;
   const offerElements = document.querySelectorAll(offersSelector);
   for (const offerElement of offerElements) {
     const offerId = getOfferId(offerElement);
@@ -1182,7 +1361,7 @@ function processSearchPage() {
       console.warn(`${logPrefix} Error extracting userId:`, error);
       userId = undefined;
     } finally {
-      updateOfferState(offerElement, { offerId, userId });
+      applyOfferState(offerElement, { offerId, userId });
     }
   }
 }
@@ -1795,6 +1974,7 @@ async function main() {
     
     // Добавляем переключатель фильтра по городу
     insertCityFilterToggle();
+    insertHideReservedToggle();
     
     // Пробуем получить данные каталога альтернативным способом при загрузке
     if (!catalogData || catalogData.length === 0) {
@@ -1911,6 +2091,7 @@ async function main() {
               console.log(`${logPrefix} offersRootSelector обновлен`);
               // Пробуем добавить переключатель при обновлении DOM
               insertCityFilterToggle();
+              insertHideReservedToggle();
               if (!catalogData) return;
               processSearchPage();
             }
@@ -1918,6 +2099,7 @@ async function main() {
               console.log(`${logPrefix} singlePageWrapper обновлен`);
               // Пробуем добавить переключатель при обновлении DOM
               insertCityFilterToggle();
+              insertHideReservedToggle();
               if (!catalogData) return;
               processSearchPage();
             }
@@ -1925,6 +2107,7 @@ async function main() {
             if (node instanceof Element && node?.classList?.toString().includes("index-topPanel-")) {
               console.log(`${logPrefix} Верхняя панель обнаружена`);
               insertCityFilterToggle();
+              insertHideReservedToggle();
             }
             if (node instanceof HTMLScriptElement && node?.textContent?.includes("abCentral") && node?.textContent?.startsWith("{")) {
               try {
@@ -1981,17 +2164,24 @@ async function load_arrays() {
 
 let isPaginationEnabled = false;
 let cityFilterEnabled = false;
+let hideReservedEnabled = false;
 
-browser.storage.local.get(["isPaginationEnabled", "isCityFilterEnabled"], function (result) {
+browser.storage.local.get(["isPaginationEnabled", "isCityFilterEnabled", "isHideReservedEnabled"], function (result) {
   if (result.isPaginationEnabled !== undefined) {
     isPaginationEnabled = result.isPaginationEnabled;
   }
   if (result.isCityFilterEnabled !== undefined) {
     cityFilterEnabled = result.isCityFilterEnabled;
-    // Отложенное обновление визуального состояния переключателя,
-    // т.к. DOM может быть ещё не готов при загрузке storage
-    setTimeout(updateCityFilterToggleState, 100);
   }
+  if (result.isHideReservedEnabled !== undefined) {
+    hideReservedEnabled = result.isHideReservedEnabled;
+  }
+  // Отложенное обновление визуального состояния переключателей,
+  // т.к. DOM может быть ещё не готов при загрузке storage
+  setTimeout(() => {
+    updateCityFilterToggleState();
+    updateHideReservedToggleState();
+  }, 100);
 });
 browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "updatePaginationState") {
@@ -2007,6 +2197,11 @@ browser.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     // Переобрабатываем страницу для применения фильтра
     processSearchPage();
   }
+  if (request.action === "updateHideReservedState") {
+    hideReservedEnabled = request.isEnabled;
+    updateHideReservedToggleState();
+    processSearchPage();
+  }
 });
 
 let catalogData;
@@ -2014,6 +2209,8 @@ let isLoading = false;
 let checkTimeout;
 let blacklistUsers = [];
 let blacklistOffers = [];
+let reservedStatusCache = new Map();
+let reservedRequestCache = new Map();
 
 load_arrays();
 
